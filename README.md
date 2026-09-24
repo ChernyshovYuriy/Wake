@@ -96,43 +96,154 @@ source failed, `4` API error.
 
 ## Running unattended on a Raspberry Pi
 
-Four systemd units in `system/` (same layout as the StockScanner project) automate the
-whole loop, starting with **no wallets at all**:
+Five systemd units in `system/` (same layout as the StockScanner project) run the whole
+loop on their own, starting with **no wallets at all**:
 
 | unit | when (New York time) | what |
 |---|---|---|
 | `hlsignals-census.service` | always on | records every wallet trading US-stock perps into `data/census.sqlite` |
+| `hlsignals-dashboard.service` | always on | read-only web view at `http://<pi>:8081` |
 | `hlsignals-discover.timer` | Sat 02:00 | vets census wallets (new first, rejected ones again after 28 days, accepted ones every week) into `data/discovered_wallets.toml` |
 | `hlsignals-run.timer` | Mon–Fri 08:45 | the report, on `config/wallets.toml` + the shortlist → `data/reports/signals-YYYY-MM-DD.{txt,md,json}` and `signals-latest.*` |
 | `hlsignals-backtest.timer` | Sun 02:00 | walk-forward backtest of the latest 60 sessions → `data/reports/backtest-*` |
-| `hlsignals-dashboard.service` | always on | read-only web view at `http://<pi>:8081` |
+
+Times are pinned to `America/New_York`, whatever the Pi's own timezone.
+
+### 1. Prerequisites
+
+- Raspberry Pi 4 or 5 (2 GB+ RAM; the weekly jobs are capped at 2 GB), wired or Wi-Fi
+  network, on the same LAN as the computer you will browse from.
+- `git` and **Python 3.12 or newer**. Check with `python3 --version`:
+  - Raspberry Pi OS **Trixie** ships 3.13: nothing to do.
+  - Raspberry Pi OS **Bookworm** ships 3.11: install 3.12 with
+    [uv](https://docs.astral.sh/uv/) (no system change needed):
+    ```bash
+    curl -LsSf https://astral.sh/uv/install.sh | sh     # then open a new shell
+    uv python install 3.12
+    ```
+
+### 2. Install (as the normal user, e.g. `pi`)
 
 ```bash
-bash system/setup-pi.sh                     # needs Python >= 3.12 (Pi OS Trixie; Bookworm: see the script)
-sudo bash system/install-services.sh        # fills in user + directory, daemon-reload
-# then the enable / logs commands in system/info
+mkdir -p ~/dev && cd ~/dev
+git clone <this repository> hl-whale-signals
+cd hl-whale-signals
+bash system/setup-pi.sh
+# Bookworm with uv instead:  PYTHON="$(uv python find 3.12)" bash system/setup-pi.sh
 ```
 
-### Dashboard
+`setup-pi.sh` checks the Python version, creates `.venv`, installs the package and
+creates `data/reports/`. It ends with `OK`.
 
-`http://<pi>:8081`, the same approach as StockScanner's dashboard (Flask under Waitress,
-LAN-only, no authentication), but **read-only**: it only shows what the jobs produced.
+Optional now or later: add wallets you already trust to `config/wallets.toml` (template
+inside). With none, the system relies entirely on what it discovers.
 
-- **Overview**: service and timer state (a failed job shows red), the wallet funnel
-  (census → eligible → shortlist → accepted), latest signals, census freshness, last
-  discovery, last backtest verdict. Refreshes every 5 minutes.
-- **Signals**: the latest (or any dated) report with every component's evidence, the
-  accepted wallets and the diagnostics.
-- **Wallets**: the discovered shortlist with trust, your curated list, rejection counts
-  and recent vetting decisions (addresses link to the Hyperliquid explorer).
+### 3. Install and start the services
+
+```bash
+sudo bash system/install-services.sh      # copies the units (fills in your user and this directory)
+
+sudo systemctl enable --now hlsignals-census.service
+sudo systemctl enable --now hlsignals-dashboard.service
+sudo systemctl enable --now hlsignals-discover.timer
+sudo systemctl enable --now hlsignals-run.timer
+sudo systemctl enable --now hlsignals-backtest.timer
+```
+
+Check that everything started:
+
+```bash
+systemctl status hlsignals-census.service hlsignals-dashboard.service --no-pager
+systemctl list-timers --all | grep hlsignals      # shows the next run of each job
+journalctl -u hlsignals-census.service -n 20 --no-pager
+```
+
+Both services should be `active (running)`, and the three timers should list a next run.
+
+### 4. Open the dashboard
+
+Find the Pi's address on the Pi with `hostname -I` (e.g. `192.168.1.50`), or use its
+name (`http://raspberrypi.local:8081` on most home networks). From any browser on the
+same network, open:
+
+```
+http://192.168.1.50:8081
+```
+
+LAN-only, no password, **read-only**: it only shows what the jobs produced.
+
+- **Overview**: start here. Every service/timer should be green (a failed job shows
+  red), the census card should say `recording`, and the wallet funnel shows census →
+  eligible (≥ 20 trades) → shortlist → accepted. It also shows the latest signals, the last
+  discovery and the last backtest verdict. Refreshes every 5 minutes.
+- **Signals**: the latest (or any dated) report: ranked long/short stocks with every
+  component's evidence, the wallets behind them, and the diagnostics.
+- **Wallets**: the discovered shortlist with trust, your curated list, and recent
+  vetting decisions with the filter that rejected each wallet (addresses link to the
+  Hyperliquid explorer).
 - **Census**: recording or stale, wallets and trades seen, new wallets per day, the most
   active wallets.
-- **Backtest**: verdict, strategy vs buy-and-hold, walk-forward folds, caveats; past runs.
+- **Backtest**: the verdict (BEAT / DID NOT BEAT buy-and-hold / INCONCLUSIVE),
+  strategy vs buy-and-hold, walk-forward folds, caveats; past runs.
+
+### 5. The first weeks (starting with no wallets)
+
+| when | what you should see |
+|---|---|
+| day 0 | Census `recording`; wallet counts climbing on the Census page. Reports say every stock is `insufficient`, as expected. |
+| after a few days | Wallets with ≥ 20 trades appear in the funnel. Run discovery now instead of waiting for Saturday: `sudo systemctl start hlsignals-discover.service` (can take an hour or more; follow it with `journalctl -u hlsignals-discover.service -f`). |
+| after discovery | The Wallets page lists accepted wallets (if any passed). The next weekday 08:45 report uses them. |
+| each Sunday | The Backtest page shows whether the shortlist's signals beat buy-and-hold. Treat anything before a non-INCONCLUSIVE verdict as unproven. |
+
+Signals are research, not advice: read the evidence before acting, and trade manually.
+
+### 6. Everyday commands
+
+```bash
+sudo systemctl start hlsignals-run.service        # make a report now (outside the schedule)
+cat ~/dev/hl-whale-signals/data/reports/signals-latest.md
+journalctl -u hlsignals-run.service -n 100 --no-pager
+```
+
+### 7. Updating
+
+```bash
+cd ~/dev/hl-whale-signals
+git pull
+.venv/bin/pip install -e .                        # picks up new dependencies
+sudo bash system/install-services.sh              # if unit files changed
+sudo systemctl restart hlsignals-census.service hlsignals-dashboard.service
+sudo systemctl restart hlsignals-run.timer hlsignals-discover.timer hlsignals-backtest.timer
+```
+
+### 8. Troubleshooting
+
+- **Dashboard does not load**: `systemctl status hlsignals-dashboard.service`; on the Pi,
+  `curl http://127.0.0.1:8081/healthz` should print `{"ok":true}`. If that works but other
+  machines cannot connect, a firewall is blocking the port (`sudo ufw allow 8081/tcp`
+  if ufw is enabled). Port 8081 in use? Change `[dashboard] port` in `config/pi.toml`.
+- **A service or timer is red**: `journalctl -u <unit> -n 100 --no-pager` shows why.
+  Exit code 2 means a configuration error, 3 that every wallet source failed, 4 an API
+  error (usually transient; the next run retries).
+- **Census `stale`**: the recorder is not receiving trades:
+  `sudo systemctl restart hlsignals-census.service`, then check its journal.
+- **`market calendar covers …`**: extend `config/us_market_calendar.toml` with the new
+  year's NYSE holidays (published on nyse.com).
+
+### 9. Stopping or removing
+
+```bash
+sudo systemctl disable --now hlsignals-census.service hlsignals-dashboard.service \
+    hlsignals-discover.timer hlsignals-run.timer hlsignals-backtest.timer
+sudo rm /etc/systemd/system/hlsignals-*
+sudo systemctl daemon-reload
+```
+
+Data (`data/`: census, discovery state, reports) stays in the project directory.
 
 Configuration for the Pi is `config/pi.toml` (`[discovery]` sets how many wallets are
-vetted per week and when rejected ones are revisited). Expect the first useful reports
-only after the census has run for some days and discovery has accepted enough trusted
-wallets. Until then every stock is `insufficient`, which is the system being honest.
+vetted per week and when rejected ones are revisited; `[dashboard]` the port).
+`system/info` is a copy-paste cheat sheet of all these commands.
 
 ---
 
