@@ -224,3 +224,23 @@ They will raise `AdapterError` (fail loud, plan rule 10) and get added when seen
 - Liquidation / ADL / settlement `dir` variants: not observed; fail loud when first seen.
 - Behavior of delisted-market settlement fills (e.g. `xyz:DXY`): not observed.
 - Exact WS subscription cap per IP: from docs, not load-tested.
+
+## 11. Plan changes applied in code (Phase 1)
+
+- `Fill` gains `start_position`, `hash` and `liquidated_user`; `Symbol.is_equity` is
+  `Symbol.is_hip3` (§1–§3).
+- Fill/position accounting fields are `Decimal` (parsed from the API's decimal strings) so
+  lot matching is exact; candles, market context and scores are `float`.
+- `LotBook` orders by time + feed order, not `(time, tid)` (§5). A `start_position`
+  mismatch resets the book to one lot of unknown origin: closes against it are *orphan*
+  lots (no entry, no PnL). Mid-history mismatches are also recorded as `PositionGap`s.
+  `net_position` returns `None` for times before a history that did not start flat.
+- `closedPnl` is gross of fees and, over flat-to-flat round trips, equals FIFO realized
+  PnL (checked on 3 live round trips; `LotBook.api_closed_pnl` exposes it for checks).
+- Wallet-address validation has a single home in `domain/address.py` (fills, positions and
+  wallet sources all need it; the plan put it in `wallets/sources/base.py`, which the
+  domain may not import).
+- Known non-perp `dir` values raise `NonPerpFillError` (subclass of `AdapterError`),
+  so callers can drop spot/outcome fills deliberately while unknown values still fail loud.
+- `TickerSignal` / `SignalReport` are defined in Phases 6/7, where their fields are
+  specified, rather than guessed now.

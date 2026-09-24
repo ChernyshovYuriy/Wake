@@ -1,0 +1,27 @@
+[importlinter]
+root_package = hlsignals
+
+# IMPLEMENTATION_PLAN.md §3.1. Siblings separated by "|" may not import each other.
+[importlinter:contract:layers]
+name = Layered architecture
+type = layers
+layers =
+    hlsignals.app
+    hlsignals.backtest | hlsignals.reporting
+    hlsignals.signals | hlsignals.wallets | hlsignals.universe | hlsignals.infra | hlsignals.session
+    hlsignals.domain
+    hlsignals.core
+
+[importlinter:contract:session-core-only]
+name = session depends on core only
+type = forbidden
+source_modules = hlsignals.session
+forbidden_modules = hlsignals.domain
+
+[importlinter:contract:backtest-no-io]
+name = backtest never imports infra or universe directly
+type = forbidden
+source_modules = hlsignals.backtest
+forbidden_modules =
+    hlsignals.infra
+    hlsignals.universe
