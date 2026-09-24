@@ -53,7 +53,24 @@ def test_every_evidence_field_and_flag_is_present(renderer: Renderer) -> None:
                 assert key in text
 
 
+def test_accepted_wallets_rendered_with_evidence(renderer: Renderer) -> None:
+    report = sample_report()
+    text = renderer.render(report)
+    for wallet in report.wallets:
+        assert wallet.address in text
+        for key in (k for f in wallet.features.values() for k in f.evidence):
+            assert key in text
+
+
 def test_diagnostics_rendered(renderer: Renderer) -> None:
     text = renderer.render(sample_report())
-    for needle in ("maker_profile", "min_day_volume", "xyz:NEWCO", "NANSEN_API_KEY", "apify", "io"):
+    for needle in (
+        "maker_profile",
+        "min_day_volume",
+        "xyz:NEWCO",
+        "NANSEN_API_KEY",
+        "apify",
+        "io",
+        "positions unavailable",
+    ):
         assert needle in text

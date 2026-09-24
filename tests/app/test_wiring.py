@@ -9,9 +9,11 @@ import pytest
 from hlsignals.app.config import ScoringSettings, Settings, SignalSettings, WalletFilterSettings
 from hlsignals.app.wiring import (
     build_gateway,
+    build_market_filter_chain,
     build_signal_engine,
     build_wallet_filter_chain,
     build_wallet_scorer,
+    load_calendar,
     load_catalog,
     load_equities,
 )
@@ -19,7 +21,7 @@ from hlsignals.core.clock import FakeClock, FakeSleeper
 from hlsignals.core.errors import ConfigError
 from hlsignals.domain.symbols import Symbol
 from hlsignals.infra.gateway import HyperliquidGateway
-from tests.factories import AS_OF, make_equity_slice, make_trips
+from tests.factories import AAPL, AS_OF, make_equity_slice, make_market_ctx, make_trips
 
 ROOT = Path(__file__).parents[2]
 
@@ -85,3 +87,17 @@ def test_signal_engine_bad_weights_is_config_error() -> None:
     bad = replace(SignalSettings(), weights=MappingProxyType({"tilt": 1.0, "vibes": 1.0}))
     with pytest.raises(ConfigError, match="vibes"):
         build_signal_engine(bad)
+
+
+def test_watchlist_filter_is_added_when_configured() -> None:
+    universe = replace(Settings().universe, watchlist=frozenset({"NVDA"}))
+    result = build_market_filter_chain(universe).run(
+        [make_market_ctx(), make_market_ctx(symbol=AAPL)]
+    )
+    assert [m.symbol.coin for m in result.accepted] == ["NVDA"]
+    assert result.counts_by_filter() == {"watchlist": 1}
+
+
+def test_load_calendar_missing_file(tmp_path: Path) -> None:
+    with pytest.raises(ConfigError, match="market calendar not found"):
+        load_calendar(tmp_path / "nope.toml")

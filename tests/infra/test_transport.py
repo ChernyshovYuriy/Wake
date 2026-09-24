@@ -336,3 +336,14 @@ def test_cache_outside_rate_limit_makes_hits_free() -> None:
         assert stack.post(PAYLOAD) == "a"  # 5 x 20 weight would exceed the budget if charged
     assert rate_sleeper.calls == []
     assert len(inner.calls) == 1
+
+
+def test_cache_evicts_expired_entries() -> None:
+    inner = Scripted(*[f"r{i}" for i in range(4)])
+    transport, clock = caching(inner)
+    transport.post({"type": "a"})
+    transport.post({"type": "b"})
+    assert transport.size == 2
+    clock.advance(timedelta(seconds=31))
+    transport.post({"type": "c"})  # both older entries have expired: dropped, not kept
+    assert transport.size == 1

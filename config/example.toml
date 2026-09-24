@@ -1,11 +1,19 @@
+# hl-whale-signals configuration. Every key is optional: anything omitted keeps the
+# default from src/hlsignals/app/config.py. All numbers are starting points to be tuned in
+# walk-forward testing, not claims of optimality.
+# Secrets (NANSEN_API_KEY, APIFY_API_TOKEN) are read from environment variables only.
+
 [universe]
-# Asset classes from config/instruments.toml that produce signals. Crypto is never signalled.
-# User rule: only US / Canadian-listed stocks. Everything else in the catalog is excluded.
 instruments_path = "config/instruments.toml"
+# User rule: only US / Canadian-listed stocks (docs/api-notes.md §1).
 include_classes = ["equity_us"]
 dex_preference = ["xyz", "para", "io", "mkts"]  # docs/api-notes.md §1
 min_day_volume_usd = 1_000_000
 min_open_interest_usd = 250_000
+# watchlist = ["NVDA", "TSLA"]      # optional: only these coins
+
+[wallets]
+precedence = ["curated", "census"]  # on conflict, earlier sources win
 
 [[wallets.sources]]
 type = "curated"
@@ -15,23 +23,61 @@ path = "config/wallets.toml"
 type = "census"
 min_observations = 20
 
-[wallets.filters]              # chain order = listed order
+# [[wallets.sources]]
+# type = "nansen"                   # enabled only when NANSEN_API_KEY is set
+
+[wallets.filters]                   # chain order = listed order
 order = ["min_sample", "maker_profile", "inactivity", "reversal_bait"]
+min_round_trips = 10
+min_taker_ratio = 0.2
+max_fills_per_day = 200
+min_median_hold_days = 0.0416667    # one hour
+max_days_since_last_fill = 14
+bait_window_hours = 24
+bait_min_events = 5
+bait_max_reversal_rate = 0.6
+bait_min_move = 0.02
 
 [wallets.scoring]
-weights = { hit_rate = 1.0, drawdown = 1.0, consistency = 1.0, horizon_fit = 1.0, prior = 0.5 }
+weights = { hit_rate = 1.0, drawdown = 1.0, consistency = 1.0, horizon_fit = 1.0, prior_score = 0.5 }
 shrinkage_k = 10
 half_life_days = 21
 swing_horizon_days = 5
+wilson_z = 1.96
+max_tolerated_drawdown = 0.5
+consistency_period_days = 7
+prior_score_scale = 100
+
+[history]
+lookback_days = 90
+candle_interval = "1h"
+signal_candle_hours = 120
 
 [signals]
 weights = { tilt = 1.0, flow = 1.0, overnight = 0.5 }
+flow_window_hours = 24
 min_flow_oi_frac = 0.02
+flow_full_scale_oi_frac = 0.10
 min_overnight = 0.003
+overnight_full_scale = 0.03
+max_overnight_staleness_hours = 2
 min_wallets = 3
 min_trust = 0.4
-epsilon = 0.01
-flow_window_hours = 24
+epsilon = 0.05                      # on the normalized [-1, 1] score
+thin_volume_usd = 5_000_000
+weak_confidence = 0.5
+
+[calendar]
+path = "config/us_market_calendar.toml"
+
+[census]
+db_path = "data/census.sqlite"
+dedupe_capacity = 100_000
+recv_timeout_s = 20
+reconnect_delay_s = 5
+
+[report]
+format = "table"                    # table | markdown | json
 
 [backtest]
 horizon_days = 5

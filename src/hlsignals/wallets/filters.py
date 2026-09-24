@@ -11,8 +11,8 @@ from dataclasses import dataclass
 from hlsignals.core.chain import Filter, FilterChain, Verdict
 from hlsignals.core.clock import MS_PER_HOUR
 from hlsignals.domain.candles import price_at
-from hlsignals.domain.models import PositionSide
-from hlsignals.wallets.scoring.slice import EquitySlice
+from hlsignals.domain.models import Fill, PositionSide
+from hlsignals.wallets.scoring.slice import EquitySlice, fills_per_active_day
 
 
 def _require_threshold(ok: bool, message: str) -> None:
@@ -117,9 +117,9 @@ class ReversalBaitFilter:
         for trip in item.scored_trips:
             held = trip.holding_ms
             after_ms = trip.close_ms + window_ms
-            candles = item.candles.get(trip.symbol, ())
             if held is None or held > window_ms or after_ms > item.as_of_ms:
                 continue
+            candles = item.candles.get(trip.symbol, ())  # read only when needed (may fetch)
             ref, after = price_at(candles, trip.close_ms), price_at(candles, after_ms)
             if ref is None or after is None:
                 continue
@@ -136,6 +136,19 @@ class ReversalBaitFilter:
             f"{reversals}/{evaluable} quick trips reversed after exit "
             f"({rate:.0%} > {self.max_reversal_rate:.0%})"
         )
+
+
+def prescreen_fill_rate(equity_fills: Sequence[Fill], max_fills_per_day: float) -> Verdict:
+    """Cheap market-maker check on a sample of a wallet's US-stock fills (the first page of
+    a heavy history), before the rest is fetched: the fills-per-active-day limit of
+    MakerProfileFilter, applied to that sample."""
+    rate = fills_per_active_day(equity_fills)
+    if rate <= max_fills_per_day:
+        return Verdict.accept()
+    return Verdict.reject(
+        f"prescreen: {len(equity_fills)} US-stock fills in the first page averaged "
+        f"{rate:.0f} fills/active day > {max_fills_per_day:g}"
+    )
 
 
 def wallet_filter_chain(filters: Sequence[Filter[EquitySlice]]) -> FilterChain[EquitySlice]:

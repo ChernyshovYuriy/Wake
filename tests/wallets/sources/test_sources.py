@@ -194,6 +194,7 @@ def test_composite_isolates_one_failing_source() -> None:
     broken = Fixed("nansen", SourceError("API down"))
     result = CompositeWalletSource([broken, fixed("curated", WALLET)]).fetch()
     assert [r.address for r in result.records] == [WALLET]
+    assert (result.used, result.failed) == (("curated",), ("nansen",))
     assert any("nansen" in d.source and "API down" in d.message for d in result.diagnostics)
 
 

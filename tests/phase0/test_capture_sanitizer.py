@@ -1,25 +1,19 @@
 from __future__ import annotations
 
-import importlib.util
 import re
-from pathlib import Path
 from types import ModuleType
 
 import pytest
 
-SCRIPT = Path(__file__).parents[2] / "scripts" / "capture_fixtures.py"
+from hlsignals.infra import recording
+
 REAL = "0x82fd11271061ad9b2e6b856e2beb3ad1e4d7f316"
 TX_HASH = "0x" + "ab" * 32
 
 
 @pytest.fixture(scope="module")
 def capture() -> ModuleType:
-    spec = importlib.util.spec_from_file_location("capture_fixtures", SCRIPT)
-    assert spec is not None
-    assert spec.loader is not None
-    module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)
-    return module
+    return recording
 
 
 def test_pseudonym_is_valid_deterministic_and_case_insensitive(capture: ModuleType) -> None:

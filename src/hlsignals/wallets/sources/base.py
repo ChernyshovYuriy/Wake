@@ -39,6 +39,8 @@ class SourceDiagnostic:
 class SourceResult:
     records: tuple[WalletRecord, ...]
     diagnostics: tuple[SourceDiagnostic, ...] = ()
+    used: tuple[str, ...] = ()  # names of sources that loaded
+    failed: tuple[str, ...] = ()  # names of sources that raised SourceError
 
 
 @dataclass(frozen=True, slots=True)
@@ -72,7 +74,7 @@ class WalletSource(ABC):
                 records.append(self._validate(self._adapt(item)))
             except (AdapterError, ValueError) as exc:
                 diagnostics.append(SourceDiagnostic(self.name, f"skipped entry: {exc}"))
-        return SourceResult(self._dedupe(records), tuple(diagnostics))
+        return SourceResult(self._dedupe(records), tuple(diagnostics), used=(self.name,))
 
     @abstractmethod
     def _load_raw(self) -> Loaded:

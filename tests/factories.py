@@ -313,5 +313,6 @@ def make_diagnostics(**overrides: Any) -> Diagnostics:
         "markets_rejected": {"min_day_volume": 35},
         "unclassified_symbols": ("xyz:NEWCO",),
         "dex_failures": {"io": "RetryableError: HTTP 503"},
+        "notes": ("positions unavailable for 1 wallet",),
     }
     return Diagnostics(**{**defaults, **overrides})

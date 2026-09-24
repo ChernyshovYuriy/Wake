@@ -12,6 +12,7 @@ from hlsignals.wallets.filters import (
     MakerProfileFilter,
     MinEquitySampleFilter,
     ReversalBaitFilter,
+    prescreen_fill_rate,
     wallet_filter_chain,
 )
 from tests.factories import NVDA, T0_MS, make_candle_series, make_equity_slice, make_trips
@@ -188,3 +189,22 @@ def test_chain_short_circuits_and_aggregates_reasons() -> None:
     result = chain.run([SWING, tiny, make_equity_slice([])])
     assert result.accepted == (SWING,)
     assert result.counts_by_filter() == {"min_sample": 2}
+
+
+# --- fill-rate pre-screen (applied to the first page of history) ----------------------------
+
+
+def test_prescreen_rejects_hyperactive_sample() -> None:
+    fills = make_trips([0.0005] * 10, hold_ms=30_000, gap_ms=30_000)  # 20 fills in minutes
+    verdict = prescreen_fill_rate(fills, max_fills_per_day=5.0)
+    assert not verdict.accepted
+    assert (
+        "prescreen: 20 US-stock fills in the first page averaged 20 fills/active day > 5"
+        in verdict.reason
+    )
+
+
+def test_prescreen_threshold_inclusive_and_empty_sample() -> None:
+    fills = make_trips([0.01] * 5, hold_ms=3_600_000, gap_ms=20 * 3_600_000)  # 10 fills, 5 days
+    assert prescreen_fill_rate(fills, max_fills_per_day=2.0).accepted
+    assert prescreen_fill_rate([], max_fills_per_day=2.0).accepted

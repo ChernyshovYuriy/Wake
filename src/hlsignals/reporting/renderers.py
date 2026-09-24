@@ -14,7 +14,9 @@ from typing import Any, Protocol
 from hlsignals.core.errors import AdapterError
 from hlsignals.domain.models import (
     Diagnostics,
+    FeatureValue,
     MarketCtx,
+    ScoredWallet,
     SignalComponent,
     SignalDirection,
     SignalFlag,
@@ -31,6 +33,8 @@ from hlsignals.reporting.evidence import (
     fmt_flags,
     fmt_score,
     market_line,
+    wallet_feature_lines,
+    wallet_line,
 )
 
 SCHEMA_VERSION = 1
@@ -93,6 +97,10 @@ class TableRenderer:
                 out.append(f"  market     {market_line(s)}   flags: {fmt_flags(s)}")
                 for name, c in s.components.items():
                     out.append(f"  {name:<10} {fmt_score(c.value)}   {fmt_evidence(c.evidence)}")
+        out += ["", f"Accepted wallets ({len(report.wallets)}):"]
+        for w in report.wallets:
+            out.append(f"  {wallet_line(w)}")
+            out += [f"    {line}" for line in wallet_feature_lines(w)]
         out += ["", "Diagnostics:"]
         out += [f"  {label}: {text}" for label, text in diagnostics_lines(report.diagnostics)]
         return "\n".join(out) + "\n"
@@ -144,6 +152,10 @@ class MarkdownRenderer:
                     f"- **{name}** {fmt_score(c.value)}: {fmt_evidence(c.evidence)}"
                     for name, c in s.components.items()
                 ]
+        out += ["", f"## Accepted wallets ({len(report.wallets)})", ""]
+        for w in report.wallets:
+            out.append(f"- `{w.address}`: {wallet_line(w).split('  ', 1)[1]}")
+            out += [f"  - {line}" for line in wallet_feature_lines(w)]
         out += ["", "## Diagnostics", ""]
         out += [f"- {label}: {text}" for label, text in diagnostics_lines(report.diagnostics)]
         return "\n".join(out) + "\n"
@@ -160,6 +172,7 @@ class JsonRenderer:
             "as_of": report.as_of.isoformat(),
             "disclaimer": DISCLAIMER,
             "signals": [_signal_to_json(s) for s in report.signals],
+            "wallets": [_wallet_to_json(w) for w in report.wallets],
             "diagnostics": _diagnostics_to_json(report.diagnostics),
         }
         return json.dumps(doc, indent=2, sort_keys=True) + "\n"
@@ -193,6 +206,34 @@ def _signal_to_json(s: TickerSignal) -> dict[str, Any]:
     }
 
 
+def _wallet_to_json(w: ScoredWallet) -> dict[str, Any]:
+    return {
+        "address": w.address,
+        "trust": w.trust,
+        "confidence": w.confidence,
+        "decay": w.decay,
+        "n_round_trips": w.n_closed_lots,
+        "track_record_days": w.track_record_days,
+        "features": {
+            name: {"value": f.value, "evidence": dict(f.evidence)} for name, f in w.features.items()
+        },
+    }
+
+
+def _wallet_from_json(raw: Mapping[str, Any]) -> ScoredWallet:
+    return ScoredWallet(
+        address=raw["address"],
+        trust=raw["trust"],
+        confidence=raw["confidence"],
+        decay=raw["decay"],
+        features={
+            name: FeatureValue(f["value"], f["evidence"]) for name, f in raw["features"].items()
+        },
+        n_closed_lots=raw["n_round_trips"],
+        track_record_days=raw["track_record_days"],
+    )
+
+
 def _diagnostics_to_json(d: Diagnostics) -> dict[str, Any]:
     return {
         "sources_used": list(d.sources_used),
@@ -207,6 +248,7 @@ def _diagnostics_to_json(d: Diagnostics) -> dict[str, Any]:
         "markets_rejected": dict(d.markets_rejected),
         "unclassified_symbols": list(d.unclassified_symbols),
         "dex_failures": dict(d.dex_failures),
+        "notes": list(d.notes),
     }
 
 
@@ -220,6 +262,7 @@ def report_from_json(text: str) -> SignalReport:
             as_of=datetime.fromisoformat(doc["as_of"]),
             signals=tuple(_signal_from_json(s) for s in doc["signals"]),
             diagnostics=_diagnostics_from_json(doc["diagnostics"]),
+            wallets=tuple(_wallet_from_json(w) for w in doc["wallets"]),
         )
     except (KeyError, TypeError, ValueError) as exc:
         raise AdapterError(f"malformed report JSON: {exc}") from exc
@@ -258,6 +301,7 @@ def _diagnostics_from_json(raw: Mapping[str, Any]) -> Diagnostics:
         markets_rejected=raw["markets_rejected"],
         unclassified_symbols=tuple(raw["unclassified_symbols"]),
         dex_failures=raw["dex_failures"],
+        notes=tuple(raw["notes"]),
     )
 
 
@@ -266,6 +310,9 @@ _RENDERERS: Mapping[str, type[TableRenderer] | type[MarkdownRenderer] | type[Jso
     "markdown": MarkdownRenderer,
     "json": JsonRenderer,
 }
+
+
+REPORT_FORMATS: frozenset[str] = frozenset(_RENDERERS)
 
 
 def renderer_for(fmt: str) -> Renderer:

@@ -13,14 +13,14 @@ Usage:  python scripts/capture_fixtures.py [--out tests/fixtures/hl]
 from __future__ import annotations
 
 import argparse
-import hashlib
 import json
-import re
 import time
 from pathlib import Path
 from typing import Any
 
 import httpx
+
+from hlsignals.infra.recording import sanitize
 
 INFO_URL = "https://api.hyperliquid.xyz/info"
 EQUITY_DEX = "xyz"
@@ -36,23 +36,6 @@ PACING_SECONDS = 2.5
 MAX_ATTEMPTS = 8
 HTTP_OK = 200
 HTTP_TOO_MANY = 429
-ADDRESS_RE = re.compile(r"0x[0-9a-fA-F]{40}(?![0-9a-fA-F])")
-KEEP_ADDRESS_KEYS = {"hash", "cloid", "deployer", "oracleUpdater", "feeRecipient"}
-
-
-def pseudonym(address: str) -> str:
-    digest = hashlib.sha256(("hlsignals-fixture:" + address.lower()).encode()).hexdigest()
-    return "0x" + digest[:40]
-
-
-def sanitize(value: Any, key: str | None = None) -> Any:
-    if isinstance(value, dict):
-        return {k: sanitize(v, k) for k, v in value.items()}
-    if isinstance(value, list):
-        return [sanitize(v, key) for v in value]
-    if isinstance(value, str) and key not in KEEP_ADDRESS_KEYS:
-        return ADDRESS_RE.sub(lambda m: pseudonym(m.group(0)), value)
-    return value
 
 
 class Info:

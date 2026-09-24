@@ -45,3 +45,9 @@ def test_addresses_lower_cased_and_duplicates_keep_newest(build: Builder, tmp_pa
     (record,) = result.records
     assert record.address == WALLET
     assert record.as_of == AS_OF
+
+
+def test_reports_itself_as_used(build: Builder, tmp_path: Path) -> None:
+    result = build(tmp_path, [(WALLET, AS_OF)]).fetch()
+    assert result.used
+    assert result.failed == ()

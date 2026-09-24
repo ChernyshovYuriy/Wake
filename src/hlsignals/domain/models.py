@@ -310,6 +310,7 @@ class Diagnostics:
     markets_rejected: Mapping[str, int]  # filter name -> count
     unclassified_symbols: tuple[str, ...]
     dex_failures: Mapping[str, str]
+    notes: tuple[str, ...] = ()  # anything else a reader must know (e.g. missing positions)
 
     def __post_init__(self) -> None:
         _require(
@@ -329,6 +330,7 @@ class SignalReport:
     as_of: datetime
     signals: tuple[TickerSignal, ...]  # ranked
     diagnostics: Diagnostics
+    wallets: tuple[ScoredWallet, ...] = ()  # accepted wallets, by trust descending
 
     def __post_init__(self) -> None:
         require_aware(self.as_of)

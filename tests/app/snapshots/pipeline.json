@@ -1,0 +1,405 @@
+{
+  "as_of": "2026-09-24T12:00:00+00:00",
+  "diagnostics": {
+    "dex_failures": {},
+    "markets_rejected": {
+      "min_day_volume": 1
+    },
+    "notes": [
+      "positions unavailable for 0x0000000000000000000000000000000000000007: RetryableError: timeout",
+      "candles unavailable for xyz:TSLA: RetryableError: HTTP 502"
+    ],
+    "source_messages": [],
+    "sources_failed": [],
+    "sources_used": [
+      "fixed"
+    ],
+    "unclassified_symbols": [
+      "xyz:NEWCO"
+    ],
+    "universe_after_filters": 3,
+    "universe_discovered": 4,
+    "wallets_accepted": 4,
+    "wallets_considered": 7,
+    "wallets_rejected": {
+      "api_error": 1,
+      "maker_profile": 1,
+      "positions_error": 1
+    },
+    "wallets_truncated": 0
+  },
+  "disclaimer": "Research signal derived from Hyperliquid HIP-3 perp activity. Not financial advice.",
+  "schema_version": 1,
+  "signals": [
+    {
+      "components": {
+        "flow": {
+          "evidence": {
+            "flow_oi_frac": 0.04608921912247647,
+            "flow_usd": 92178.43824495294,
+            "n_fills": 3,
+            "n_wallets": 3,
+            "oi_usd": 2000000.0,
+            "window_hours": 24.0
+          },
+          "value": 0.46089219122476466
+        },
+        "overnight": {
+          "evidence": {
+            "last_px": 102.38,
+            "log_return": 0.003130505393611698,
+            "pct": 0.0031354105428178514,
+            "ref_px": 102.06,
+            "stale": false
+          },
+          "value": 0.1043501797870566
+        },
+        "tilt": {
+          "evidence": {
+            "gross_usd": 3687.1375297981176,
+            "mark_px": 100.0,
+            "n_long": 3,
+            "n_short": 0,
+            "n_wallets": 3,
+            "net_usd": 3687.1375297981176,
+            "tilt": 1.0
+          },
+          "value": 1.0
+        }
+      },
+      "direction": "long",
+      "flags": [],
+      "market": {
+        "day_ntl_vlm": 50000000.0,
+        "funding": 0.0,
+        "is_delisted": false,
+        "mark_px": 100.0,
+        "mid_px": 100.0,
+        "oi_usd": 2000000.0,
+        "open_interest": 20000.0,
+        "oracle_px": 100.0,
+        "prev_day_px": 99.0
+      },
+      "n_wallets": 3,
+      "reason": "long: |score +0.605| > epsilon 0.05; 3 trusted wallets >= 3 (3 involved, trust >= 0.4)",
+      "score": 0.6052269124473172,
+      "status": "scored",
+      "symbol": "xyz:NVDA"
+    },
+    {
+      "components": {
+        "flow": {
+          "evidence": {
+            "flow_oi_frac": 0.01536307304082549,
+            "flow_usd": 30726.14608165098,
+            "n_fills": 1,
+            "n_wallets": 1,
+            "note": "|flow/OI| below the 2.0% floor",
+            "oi_usd": 2000000.0,
+            "window_hours": 24.0
+          },
+          "value": 0.0
+        },
+        "overnight": {
+          "evidence": {
+            "last_px": 100.0,
+            "log_return": 0.0,
+            "note": "|move| below the 0.30% floor",
+            "pct": 0.0,
+            "ref_px": 100.0,
+            "stale": false
+          },
+          "value": 0.0
+        },
+        "tilt": {
+          "evidence": {
+            "gross_usd": 921.7843824495294,
+            "mark_px": 100.0,
+            "n_long": 1,
+            "n_short": 1,
+            "n_wallets": 2,
+            "net_usd": -307.2614608165098,
+            "tilt": -0.3333333333333333
+          },
+          "value": -0.3333333333333333
+        }
+      },
+      "direction": null,
+      "flags": [],
+      "market": {
+        "day_ntl_vlm": 50000000.0,
+        "funding": 0.0,
+        "is_delisted": false,
+        "mark_px": 100.0,
+        "mid_px": 100.0,
+        "oi_usd": 2000000.0,
+        "open_interest": 20000.0,
+        "oracle_px": 100.0,
+        "prev_day_px": 99.0
+      },
+      "n_wallets": 2,
+      "reason": "2 trusted wallets < 3 (2 involved, trust >= 0.4)",
+      "score": null,
+      "status": "insufficient",
+      "symbol": "xyz:AAPL"
+    },
+    {
+      "components": {
+        "flow": {
+          "evidence": {
+            "flow_oi_frac": 0.0,
+            "flow_usd": 0,
+            "n_fills": 0,
+            "n_wallets": 0,
+            "note": "|flow/OI| below the 2.0% floor",
+            "oi_usd": 2000000.0,
+            "window_hours": 24.0
+          },
+          "value": 0.0
+        },
+        "overnight": {
+          "evidence": {
+            "note": "no candles",
+            "stale": true
+          },
+          "value": 0.0
+        },
+        "tilt": {
+          "evidence": {
+            "gross_usd": 0.0,
+            "mark_px": 100.0,
+            "n_long": 0,
+            "n_short": 0,
+            "n_wallets": 0,
+            "net_usd": 0.0,
+            "tilt": 0.0
+          },
+          "value": 0.0
+        }
+      },
+      "direction": null,
+      "flags": [
+        "stale_overnight_ref",
+        "weak_sample"
+      ],
+      "market": {
+        "day_ntl_vlm": 50000000.0,
+        "funding": 0.0,
+        "is_delisted": false,
+        "mark_px": 100.0,
+        "mid_px": 100.0,
+        "oi_usd": 2000000.0,
+        "open_interest": 20000.0,
+        "oracle_px": 100.0,
+        "prev_day_px": 99.0
+      },
+      "n_wallets": 0,
+      "reason": "0 trusted wallets < 3 (0 involved, trust >= 0.4)",
+      "score": null,
+      "status": "insufficient",
+      "symbol": "xyz:TSLA"
+    }
+  ],
+  "wallets": [
+    {
+      "address": "0x0000000000000000000000000000000000000001",
+      "confidence": 0.75,
+      "decay": 0.9972531953404955,
+      "features": {
+        "consistency": {
+          "evidence": {
+            "n_trips": 30,
+            "negative_or_flat_periods": 0,
+            "period_days": 7.0,
+            "periods": 11,
+            "positive_periods": 11,
+            "weight": 1.0
+          },
+          "value": 1.0
+        },
+        "drawdown": {
+          "evidence": {
+            "cumulative_return": 0.6000000000000002,
+            "max_drawdown": 0.0,
+            "n_trips": 30,
+            "tolerated_drawdown": 0.5,
+            "weight": 1.0
+          },
+          "value": 1.0
+        },
+        "hit_rate": {
+          "evidence": {
+            "n_trips": 30,
+            "raw_hit_rate": 1.0,
+            "weight": 1.0,
+            "wins": 30,
+            "z": 1.96
+          },
+          "value": 0.886482908609522
+        },
+        "horizon_fit": {
+          "evidence": {
+            "horizon_days": 5.0,
+            "median_hold_days": 2.0,
+            "n_trips": 30,
+            "weight": 1.0
+          },
+          "value": 0.4
+        }
+      },
+      "n_round_trips": 30,
+      "track_record_days": 75.91666666666667,
+      "trust": 0.6145229216330196
+    },
+    {
+      "address": "0x0000000000000000000000000000000000000002",
+      "confidence": 0.75,
+      "decay": 0.9972531953404955,
+      "features": {
+        "consistency": {
+          "evidence": {
+            "n_trips": 30,
+            "negative_or_flat_periods": 0,
+            "period_days": 7.0,
+            "periods": 11,
+            "positive_periods": 11,
+            "weight": 1.0
+          },
+          "value": 1.0
+        },
+        "drawdown": {
+          "evidence": {
+            "cumulative_return": 0.6000000000000002,
+            "max_drawdown": 0.0,
+            "n_trips": 30,
+            "tolerated_drawdown": 0.5,
+            "weight": 1.0
+          },
+          "value": 1.0
+        },
+        "hit_rate": {
+          "evidence": {
+            "n_trips": 30,
+            "raw_hit_rate": 1.0,
+            "weight": 1.0,
+            "wins": 30,
+            "z": 1.96
+          },
+          "value": 0.886482908609522
+        },
+        "horizon_fit": {
+          "evidence": {
+            "horizon_days": 5.0,
+            "median_hold_days": 2.0,
+            "n_trips": 30,
+            "weight": 1.0
+          },
+          "value": 0.4
+        }
+      },
+      "n_round_trips": 30,
+      "track_record_days": 75.91666666666667,
+      "trust": 0.6145229216330196
+    },
+    {
+      "address": "0x0000000000000000000000000000000000000003",
+      "confidence": 0.75,
+      "decay": 0.9972531953404955,
+      "features": {
+        "consistency": {
+          "evidence": {
+            "n_trips": 30,
+            "negative_or_flat_periods": 0,
+            "period_days": 7.0,
+            "periods": 11,
+            "positive_periods": 11,
+            "weight": 1.0
+          },
+          "value": 1.0
+        },
+        "drawdown": {
+          "evidence": {
+            "cumulative_return": 0.6000000000000002,
+            "max_drawdown": 0.0,
+            "n_trips": 30,
+            "tolerated_drawdown": 0.5,
+            "weight": 1.0
+          },
+          "value": 1.0
+        },
+        "hit_rate": {
+          "evidence": {
+            "n_trips": 30,
+            "raw_hit_rate": 1.0,
+            "weight": 1.0,
+            "wins": 30,
+            "z": 1.96
+          },
+          "value": 0.886482908609522
+        },
+        "horizon_fit": {
+          "evidence": {
+            "horizon_days": 5.0,
+            "median_hold_days": 2.0,
+            "n_trips": 30,
+            "weight": 1.0
+          },
+          "value": 0.4
+        }
+      },
+      "n_round_trips": 30,
+      "track_record_days": 75.91666666666667,
+      "trust": 0.6145229216330196
+    },
+    {
+      "address": "0x0000000000000000000000000000000000000004",
+      "confidence": 0.75,
+      "decay": 0.9972531953404955,
+      "features": {
+        "consistency": {
+          "evidence": {
+            "n_trips": 30,
+            "negative_or_flat_periods": 0,
+            "period_days": 7.0,
+            "periods": 11,
+            "positive_periods": 11,
+            "weight": 1.0
+          },
+          "value": 1.0
+        },
+        "drawdown": {
+          "evidence": {
+            "cumulative_return": 0.6000000000000002,
+            "max_drawdown": 0.0,
+            "n_trips": 30,
+            "tolerated_drawdown": 0.5,
+            "weight": 1.0
+          },
+          "value": 1.0
+        },
+        "hit_rate": {
+          "evidence": {
+            "n_trips": 30,
+            "raw_hit_rate": 1.0,
+            "weight": 1.0,
+            "wins": 30,
+            "z": 1.96
+          },
+          "value": 0.886482908609522
+        },
+        "horizon_fit": {
+          "evidence": {
+            "horizon_days": 5.0,
+            "median_hold_days": 2.0,
+            "n_trips": 30,
+            "weight": 1.0
+          },
+          "value": 0.4
+        }
+      },
+      "n_round_trips": 30,
+      "track_record_days": 75.91666666666667,
+      "trust": 0.6145229216330196
+    }
+  ]
+}

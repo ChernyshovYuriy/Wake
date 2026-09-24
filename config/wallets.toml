@@ -1,0 +1,8 @@
+# Curated wallets to follow. Add one [[wallets]] table per address, e.g.:
+#
+# [[wallets]]
+# address = "0x0123456789abcdef0123456789abcdef01234567"
+# score = 87.5                        # optional: e.g. a Hyperdash / ASXN copy score (0-100)
+# metric = "hyperdash_copy_score"     # optional: what the score measures
+# as_of = 2026-09-20T00:00:00Z        # optional: when you took the score
+# note = "why this wallet"            # optional, ignored

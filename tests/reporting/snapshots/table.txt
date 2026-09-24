@@ -31,6 +31,12 @@ xyz:META [insufficient] 2 trusted wallets < 3 (trust >= 0.4)
   flow       +0.000   flow_usd=0, oi_usd=2,000,000, n_fills=7
   overnight  +0.000   ref_px=100.00, last_px=100.00, pct=0, stale=false
 
+Accepted wallets (2):
+  0x0000000000000000000000000000000000000001  trust 0.610 = base x confidence 0.750 x decay 0.970; 30 round trips over 74.5 days
+    hit_rate 0.700: wins=21, n_trips=30
+  0x0000000000000000000000000000000000000002  trust 0.440 = base x confidence 0.500 x decay 1.000; 10 round trips over 30.0 days
+    hit_rate 0.500: 
+
 Diagnostics:
   wallet sources used: curated, census
   wallet sources failed: apify
@@ -41,3 +47,4 @@ Diagnostics:
   universe: 45 markets after filters of 80 discovered; rejected by filter: min_day_volume 35
   unclassified symbols: xyz:NEWCO
   dex failures: io: RetryableError: HTTP 503
+  note: positions unavailable for 1 wallet

@@ -33,10 +33,11 @@ class Corroboration:
         involved |= {f.wallet for f in inputs.fills}
         trusted = frozenset(w for w in involved if inputs.trust(w) >= self.min_trust)
         n = len(trusted)
+        detail = f"{len(involved)} involved, trust >= {self.min_trust}"
         if n >= self.min_wallets:
-            return CorroborationResult(True, trusted, f"{n} trusted wallets >= {self.min_wallets}")
+            return CorroborationResult(
+                True, trusted, f"{n} trusted wallets >= {self.min_wallets} ({detail})"
+            )
         return CorroborationResult(
-            False,
-            trusted,
-            f"{n} trusted wallets < {self.min_wallets} (trust >= {self.min_trust})",
+            False, trusted, f"{n} trusted wallets < {self.min_wallets} ({detail})"
         )

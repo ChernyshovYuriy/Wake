@@ -195,7 +195,11 @@ class RateLimitedTransport(Transport):
 
 
 class CachingTransport(Transport):
-    """Caches successful responses by canonical payload for ``ttl_s``; errors are not cached."""
+    """Caches successful responses by canonical payload for ``ttl_s``; errors are not cached.
+
+    Expired entries are dropped on every call, so memory is bounded by what was fetched
+    within one TTL (fill pages are large: keeping them all would grow without limit).
+    """
 
     def __init__(self, inner: Transport, ttl_s: float, clock: Clock) -> None:
         if ttl_s <= 0:
@@ -205,15 +209,28 @@ class CachingTransport(Transport):
         self._clock = clock
         self._entries: dict[str, tuple[float, Any]] = {}
 
+    @property
+    def size(self) -> int:
+        return len(self._entries)
+
     def post(self, payload: Payload) -> Any:
         key = canonical_key(payload)
         now = to_ms(self._clock.now())
+        self._evict(now)
         hit = self._entries.get(key)
-        if hit is not None and now - hit[0] < self._ttl_ms:
+        if hit is not None:
             return copy.deepcopy(hit[1])
         response = self._inner.post(payload)
         self._entries[key] = (now, response)
         return copy.deepcopy(response)
+
+    def _evict(self, now: int) -> None:
+        # Entries are inserted in time order, so the expired ones are at the front.
+        while self._entries:
+            key, (stored_at, _) = next(iter(self._entries.items()))
+            if now - stored_at < self._ttl_ms:
+                return
+            del self._entries[key]
 
 
 class FixtureTransport(Transport):

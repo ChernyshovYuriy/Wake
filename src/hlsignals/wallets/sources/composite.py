@@ -56,4 +56,7 @@ class CompositeWalletSource:
         if len(failures) == len(self._sources):
             details = "; ".join(d.message for d in diagnostics)
             raise SourceError(f"all wallet sources failed: {details}")
-        return SourceResult(tuple(merged.values()), tuple(diagnostics))
+        used = tuple(s.name for s in self._sources if s.name not in failures)
+        return SourceResult(
+            tuple(merged.values()), tuple(diagnostics), used=used, failed=tuple(failures)
+        )

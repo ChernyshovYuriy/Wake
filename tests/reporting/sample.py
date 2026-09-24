@@ -5,6 +5,7 @@ from __future__ import annotations
 from datetime import UTC, datetime
 
 from hlsignals.domain.models import (
+    FeatureValue,
     SignalComponent,
     SignalDirection,
     SignalFlag,
@@ -13,7 +14,7 @@ from hlsignals.domain.models import (
     TickerSignal,
 )
 from hlsignals.domain.symbols import Symbol
-from tests.factories import make_diagnostics, make_market_ctx
+from tests.factories import make_diagnostics, make_market_ctx, make_scored_wallet, wallet_address
 
 AS_OF = datetime(2026, 9, 24, 12, 45, tzinfo=UTC)
 
@@ -83,7 +84,19 @@ def sample_report() -> SignalReport:
         ),
         signal("META", None, None, (0.2, 0.0, 0.0), n_wallets=2),
     )
-    return SignalReport(AS_OF, signals, make_diagnostics())
+    wallets = (
+        make_scored_wallet(
+            address=wallet_address(1),
+            trust=0.61,
+            confidence=0.75,
+            decay=0.97,
+            features={"hit_rate": FeatureValue(0.7, {"wins": 21, "n_trips": 30})},
+            n_closed_lots=30,
+            track_record_days=74.5,
+        ),
+        make_scored_wallet(address=wallet_address(2), trust=0.44),
+    )
+    return SignalReport(AS_OF, signals, make_diagnostics(), wallets)
 
 
 def empty_report() -> SignalReport:

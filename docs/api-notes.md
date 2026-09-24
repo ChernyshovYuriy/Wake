@@ -333,3 +333,28 @@ They will raise `AdapterError` (fail loud, plan rule 10) and get added when seen
 - Snapshot files: `tests/reporting/snapshots/`; regenerate after an intended change with
   `UPDATE_SNAPSHOTS=1 pytest tests/reporting`.
 - Number formatting has one home (`reporting/evidence.py`), also used by `vet`.
+
+## 18. Phase 8 notes
+
+- Config: `load_settings(path)` overlays TOML on the defaults in `app/config.py`. Unknown
+  sections/keys and wrong types raise `ConfigError` naming the field. `validate_settings`
+  builds every component so out-of-range values fail at load time, naming the section.
+  Keys that look like secrets (`*api_key*`, `*token*`, `*secret*`, `*password*`) are
+  rejected: API keys come only from the environment.
+- `PipelineBuilder` needs settings, clock and transport (missing parts are named). The
+  pipeline is orchestration only; per-wallet (fills, positions) and per-symbol (candles)
+  API failures become diagnostics/notes and the run continues. Configuration errors and
+  "every wallet source failed" stop it (exit codes 2 / 3; API failures before any
+  per-item isolation, e.g. discovery, exit 4).
+- Candles are fetched once per symbol per run (`app/candles.CandleCache`) and shared by
+  the reversal-bait filter and the overnight signal.
+- Only accepted wallets keep their full history in memory. A first live run grew to 816 MB
+  holding rejected market makers' fills (up to 10k each); fixed before the documented run.
+- `capture-fixtures --out DIR` records every request of a live run (sanitized:
+  pseudonymized addresses) plus the frozen wallet list, the as-of time and the live
+  report. `run --fixtures DIR` replays it offline, deterministically.
+- **PLAN CHANGE:** `run --asof` is not offered for the live API. Positions from
+  `clearinghouseState` are always current, so an as-of in the past would mix present
+  positions with past fills. Past as-of runs are replays (`--fixtures`) or backtests (Phase 9).
+- Census selection bias: `census.min_observations` favours the most active wallets, which
+  on the tape are mostly market makers. Swing traders appear rarely in a short census.

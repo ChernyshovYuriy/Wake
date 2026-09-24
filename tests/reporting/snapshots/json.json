@@ -7,6 +7,9 @@
     "markets_rejected": {
       "min_day_volume": 35
     },
+    "notes": [
+      "positions unavailable for 1 wallet"
+    ],
     "source_messages": [
       "nansen: disabled: NANSEN_API_KEY is not set",
       "apify: failed: HTTP 503"
@@ -231,6 +234,39 @@
       "score": null,
       "status": "insufficient",
       "symbol": "xyz:META"
+    }
+  ],
+  "wallets": [
+    {
+      "address": "0x0000000000000000000000000000000000000001",
+      "confidence": 0.75,
+      "decay": 0.97,
+      "features": {
+        "hit_rate": {
+          "evidence": {
+            "n_trips": 30,
+            "wins": 21
+          },
+          "value": 0.7
+        }
+      },
+      "n_round_trips": 30,
+      "track_record_days": 74.5,
+      "trust": 0.61
+    },
+    {
+      "address": "0x0000000000000000000000000000000000000002",
+      "confidence": 0.5,
+      "decay": 1.0,
+      "features": {
+        "hit_rate": {
+          "evidence": {},
+          "value": 0.5
+        }
+      },
+      "n_round_trips": 10,
+      "track_record_days": 30.0,
+      "trust": 0.44
     }
   ]
 }

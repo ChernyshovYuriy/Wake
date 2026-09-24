@@ -18,6 +18,12 @@ from hlsignals.domain.models import Candle, Fill, Position
 from hlsignals.domain.symbols import Symbol
 
 
+def fills_per_active_day(fills: Sequence[Fill]) -> float:
+    """Fills divided by the number of distinct UTC days that had any fill."""
+    days = {f.time_ms // MS_PER_DAY for f in fills}
+    return len(fills) / len(days) if days else 0.0
+
+
 @dataclass(frozen=True, slots=True)
 class EquitySlice:
     address: str
@@ -83,8 +89,7 @@ class EquitySlice:
 
     @property
     def fills_per_active_day(self) -> float:
-        days = {f.time_ms // MS_PER_DAY for f in self.fills}
-        return len(self.fills) / len(days) if days else 0.0
+        return fills_per_active_day(self.fills)
 
     @property
     def last_fill_ms(self) -> int | None:

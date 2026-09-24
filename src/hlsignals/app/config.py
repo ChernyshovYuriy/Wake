@@ -1,14 +1,23 @@
-"""Default values of every threshold, weight, window and endpoint (CLAUDE.md rule 6).
+"""Settings: the default value of every threshold, weight, window and endpoint
+(CLAUDE.md rule 6), and loading overrides from TOML.
 
-These are starting points to be tuned in walk-forward testing, not claims of optimality.
-Phase 8 adds loading overrides from TOML with validation; until then these are used as-is.
+Defaults are starting points to be tuned in walk-forward testing, not claims of
+optimality. ``load_settings`` overlays a TOML file on the defaults: unknown keys and
+wrongly typed values raise ConfigError naming the field. Secrets never come from the file,
+only from the environment (wallet sources read their API keys from it).
 """
 
 from __future__ import annotations
 
+import dataclasses
+import tomllib
+from collections.abc import Mapping
 from dataclasses import dataclass, field
+from pathlib import Path
 from types import MappingProxyType
-from typing import Final
+from typing import Any, Final, get_args, get_origin, get_type_hints
+
+from hlsignals.core.errors import ConfigError
 
 WALLET_FILTER_NAMES: Final = ("min_sample", "maker_profile", "inactivity", "reversal_bait")
 
@@ -47,6 +56,7 @@ class UniverseSettings:
     dex_preference: tuple[str, ...] = ("xyz", "para", "io", "mkts")
     min_day_volume_usd: float = 1_000_000.0
     min_open_interest_usd: float = 250_000.0
+    watchlist: frozenset[str] = frozenset()  # optional: restrict to these coins
 
 
 @dataclass(frozen=True, slots=True)
@@ -104,9 +114,48 @@ class SignalSettings:
 
 
 @dataclass(frozen=True, slots=True)
-class VetSettings:
+class HistorySettings:
+    """How much wallet history is fetched and scored, and the candle resolution."""
+
     lookback_days: float = 90.0
     candle_interval: str = "1h"
+    signal_candle_hours: float = 120.0  # covers a long weekend for the overnight reference
+
+
+@dataclass(frozen=True, slots=True)
+class WalletSourceSettings:
+    sources: tuple[Mapping[str, Any], ...] = (
+        MappingProxyType({"type": "curated", "path": "config/wallets.toml"}),
+        MappingProxyType({"type": "census", "min_observations": 20}),
+    )
+    precedence: tuple[str, ...] = ("curated", "census")
+
+
+@dataclass(frozen=True, slots=True)
+class CalendarSettings:
+    path: str = "config/us_market_calendar.toml"
+
+
+@dataclass(frozen=True, slots=True)
+class CensusSettings:
+    db_path: str = "data/census.sqlite"
+    dedupe_capacity: int = 100_000
+    recv_timeout_s: float = 20.0
+    reconnect_delay_s: float = 5.0
+
+
+@dataclass(frozen=True, slots=True)
+class BacktestSettings:
+    horizon_days: float = 5.0
+    cost_bps: float = 5.0
+    train_days: float = 60.0
+    test_days: float = 20.0
+    min_trades_for_verdict: int = 30
+
+
+@dataclass(frozen=True, slots=True)
+class ReportSettings:
+    format: str = "table"
 
 
 @dataclass(frozen=True, slots=True)
@@ -116,4 +165,112 @@ class Settings:
     wallet_filters: WalletFilterSettings = field(default_factory=WalletFilterSettings)
     scoring: ScoringSettings = field(default_factory=ScoringSettings)
     signals: SignalSettings = field(default_factory=SignalSettings)
-    vet: VetSettings = field(default_factory=VetSettings)
+    history: HistorySettings = field(default_factory=HistorySettings)
+    wallet_sources: WalletSourceSettings = field(default_factory=WalletSourceSettings)
+    calendar: CalendarSettings = field(default_factory=CalendarSettings)
+    census: CensusSettings = field(default_factory=CensusSettings)
+    report: ReportSettings = field(default_factory=ReportSettings)
+    backtest: BacktestSettings = field(default_factory=BacktestSettings)
+
+
+# TOML table path -> Settings field. [wallets] holds sources/precedence and two sub-tables.
+_SECTIONS: Final = {
+    ("api",): "api",
+    ("universe",): "universe",
+    ("wallets", "filters"): "wallet_filters",
+    ("wallets", "scoring"): "scoring",
+    ("signals",): "signals",
+    ("history",): "history",
+    ("calendar",): "calendar",
+    ("census",): "census",
+    ("report",): "report",
+    ("backtest",): "backtest",
+}
+_SECRET_MARKERS: Final = ("api_key", "apikey", "token", "secret", "password")
+
+
+def load_settings(path: Path | None) -> Settings:
+    """Defaults, overlaid with the TOML file at ``path`` when given."""
+    if path is None:
+        return Settings()
+    try:
+        raw = tomllib.loads(path.read_text())
+    except FileNotFoundError as exc:
+        raise ConfigError(f"config file not found: {path}") from exc
+    except tomllib.TOMLDecodeError as exc:
+        raise ConfigError(f"invalid TOML in {path}: {exc}") from exc
+    return settings_from_mapping(raw)
+
+
+def settings_from_mapping(raw: Mapping[str, Any]) -> Settings:
+    _reject_secrets(raw, "")
+    wallets = dict(raw.get("wallets", {}))
+    known_top = {path[0] for path in _SECTIONS}
+    unknown = set(raw) - known_top
+    if unknown:
+        raise ConfigError(f"unknown config section(s): {sorted(unknown)}")
+    overrides: dict[str, Any] = {}
+    for path, attr in _SECTIONS.items():
+        table: Any = raw
+        for part in path:
+            table = table.get(part, {}) if isinstance(table, Mapping) else {}
+        if table:
+            current = getattr(Settings(), attr)
+            overrides[attr] = _section(type(current), table, ".".join(path))
+    source_keys = {k: wallets.pop(k) for k in ("sources", "precedence") if k in wallets}
+    wallets.pop("filters", None)
+    wallets.pop("scoring", None)
+    if wallets:
+        raise ConfigError(f"unknown key(s) in [wallets]: {sorted(wallets)}")
+    if source_keys:
+        overrides["wallet_sources"] = _section(WalletSourceSettings, source_keys, "wallets")
+    return dataclasses.replace(Settings(), **overrides)
+
+
+def _reject_secrets(raw: Any, where: str) -> None:
+    if isinstance(raw, Mapping):
+        for key, value in raw.items():
+            name = f"{where}.{key}" if where else key
+            if any(marker in key.lower() for marker in _SECRET_MARKERS):
+                raise ConfigError(f"{name}: secrets must come from environment variables")
+            _reject_secrets(value, name)
+    elif isinstance(raw, list):
+        for item in raw:
+            _reject_secrets(item, where)
+
+
+def _section[T](cls: type[T], raw: Any, where: str) -> T:
+    if not isinstance(raw, Mapping):
+        raise ConfigError(f"[{where}] must be a table")
+    hints = get_type_hints(cls)
+    unknown = set(raw) - set(hints)
+    if unknown:
+        raise ConfigError(f"unknown key(s) in [{where}]: {sorted(unknown)}")
+    values = {key: _coerce(hints[key], value, f"{where}.{key}") for key, value in raw.items()}
+    return dataclasses.replace(cls(), **values)  # type: ignore[type-var]
+
+
+def _coerce(hint: Any, value: Any, name: str) -> Any:
+    origin, args = get_origin(hint), get_args(hint)
+    if hint is float:
+        if isinstance(value, bool) or not isinstance(value, int | float):
+            raise ConfigError(f"{name} must be a number, got {value!r}")
+        return float(value)
+    if hint in (int, str, bool):
+        if isinstance(value, bool) != (hint is bool) or not isinstance(value, hint):
+            raise ConfigError(f"{name} must be {hint.__name__}, got {value!r}")
+        return value
+    if origin in (tuple, frozenset):
+        if not isinstance(value, list):
+            raise ConfigError(f"{name} must be a list, got {value!r}")
+        items = [_coerce(args[0], item, f"{name}[]") for item in value]
+        return origin(items)
+    if origin is MappingProxyType:
+        if not isinstance(value, Mapping):
+            raise ConfigError(f"{name} must be a table, got {value!r}")
+        return MappingProxyType({k: _coerce(args[1], v, f"{name}.{k}") for k, v in value.items()})
+    if origin is Mapping:  # free-form tables (wallet source specs)
+        if not isinstance(value, Mapping):
+            raise ConfigError(f"{name} must be a table, got {value!r}")
+        return MappingProxyType(dict(value))
+    raise ConfigError(f"{name}: unsupported setting type {hint!r}")  # pragma: no cover
