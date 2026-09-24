@@ -12,6 +12,10 @@ US cash close.
 
 ## How it works
 
+![architecture](docs/architecture.png)
+
+(Source: `docs/architecture.puml`, PlantUML.)
+
 ```
 discover markets ─► filter markets ─► fetch wallets ─► vet wallets ─► positions ─► signals ─► rank ─► report
  (HIP-3 dexes,       (liquidity)       (curated list,   (filters +     (accepted   (tilt, flow,

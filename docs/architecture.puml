@@ -1,0 +1,76 @@
+@startuml hl-whale-signals
+' hl-whale-signals: what it does, major components, communication and data flow.
+' Render: plantuml docs/architecture.puml   (or any PlantUML viewer / IDE plugin)
+
+title hl-whale-signals: swing-trade signals for US stocks from Hyperliquid HIP-3 perps\n<size:12>signals only: no orders are ever placed. Research, not financial advice.</size>
+
+skinparam componentStyle rectangle
+skinparam shadowing false
+skinparam defaultFontSize 12
+skinparam ArrowFontSize 11
+skinparam packageStyle rectangle
+
+actor "Trader" as trader
+component "hlsignals CLI\nrun | vet | census | backtest" as cli #E3F2FD
+file "config/*.toml\nsettings, US-stock catalog,\nmarket calendar" as cfg #FFFDE7
+
+package "Census  (finding wallets)" as censuspkg #FCE4EC {
+  component "Tape recorder\nbuyer + seller of every\nUS-stock perp trade" as tape
+  database "census.sqlite" as censusdb
+  file "wallets.toml\n(your curated list)" as curated
+}
+
+package "Signal pipeline  (pure logic, as of time t)" as pipeline #E8F5E9 {
+  component "1 Universe\nHIP-3 markets that are US stocks,\nliquid enough" as universe
+  component "2 Wallets\ncurated list + census (+ paid sources)" as sources
+  component "3 Vetting\ndrop market makers, inactive and bait wallets;\nscore trust from their US-stock round trips" as vetting
+  component "4 Signals per stock\npositioning tilt + flow + overnight move;\nscored only when several trusted wallets agree" as signals
+  component "5 Report\nranked long / short / flat, with evidence" as report
+}
+
+package "Backtest" as btpkg #FFF3E0 {
+  component "Replay past sessions through a\nlook-ahead guard; real-stock trades\nvs buy-and-hold, after costs;\nwalk-forward tuning" as backtest
+}
+
+package "Infra  (the only network I/O)" as infra #EDE7F6 {
+  component "Hyperliquid gateway\nrate-limited, retried, cached;\nJSON > typed models" as gateway
+}
+
+cloud "Hyperliquid\nWebSocket" as hlws
+cloud "Hyperliquid /info\n(REST)" as hlrest
+cloud "Yahoo Finance\n(daily stock bars)" as yahoo
+
+' --- main flow, top to bottom -----------------------------------------------------------
+trader -down-> cli : commands
+cfg -right-> cli : settings
+cli -down-> universe : run
+universe -down-> sources : tradable markets
+sources -down-> vetting : candidate wallets
+vetting -down-> signals : trusted wallets\n+ their trades
+signals -down-> report : per-stock signals
+report -right-> trader : report
+pipeline -down-> gateway : markets, fills,\npositions, candles
+gateway -down-> hlrest : HTTPS
+
+' --- census (left) feeds the wallet step --------------------------------------------------
+hlws -down-> tape : live trades
+tape -down-> censusdb : records wallets
+censusdb -right-> sources
+curated -right-> sources
+cli -left-> tape : census
+
+' --- backtest (right) reuses steps 3-4 on the past ---------------------------------------
+cli -right-> backtest : backtest
+backtest -left-> vetting : as of each\npast session
+backtest -down-> yahoo : stock prices
+backtest -up-> trader : verdict vs\nbuy-and-hold
+
+legend bottom
+  <b>One run:</b> 1 find liquid US-stock perps  >  2 collect candidate wallets  >  3 keep skilled swing
+  traders and score their trust  >  4 per stock, combine what trusted wallets hold, trade, and the
+  overnight perp move; score only when several agree  >  5 report every number with its evidence.
+  <b>Census</b> builds the wallet list from the live tape. <b>Backtest</b> replays history with no look-ahead
+  and compares the signals with simply holding the stocks.
+endlegend
+
+@enduml
