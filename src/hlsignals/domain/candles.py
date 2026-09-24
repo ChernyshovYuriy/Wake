@@ -9,9 +9,10 @@ from hlsignals.domain.models import Candle
 
 
 def price_at(candles: Sequence[Candle], t_ms: int) -> float | None:
-    """Close of the last candle that had closed by ``t_ms`` (None if none had)."""
-    closes = [c.close_ms for c in candles]
-    if closes != sorted(closes):
-        raise ValueError("candles must be sorted by close time")
-    idx = bisect_right(closes, t_ms)
+    """Close of the last candle that had closed by ``t_ms`` (None if none had).
+
+    Precondition: ``candles`` sorted by close time. Every producer guarantees it
+    (``adapt_candles`` sorts, ``HistoricalData`` validates), so this is a binary search.
+    """
+    idx = bisect_right(candles, t_ms, key=lambda c: c.close_ms)
     return candles[idx - 1].close if idx else None

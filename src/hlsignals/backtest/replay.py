@@ -8,6 +8,7 @@ Trades whose bars are missing or whose exit has not happened yet are skipped and
 
 from __future__ import annotations
 
+import logging
 from collections import Counter
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
@@ -27,6 +28,10 @@ _TRADED = frozenset({SignalDirection.LONG, SignalDirection.SHORT})
 # Calendar days to look ahead for the exit session (covers holidays around a horizon).
 _EXIT_SEARCH_FACTOR = 2
 _EXIT_SEARCH_SLACK_DAYS = 10
+
+
+logger = logging.getLogger(__name__)
+_PROGRESS_EVERY = 10
 
 
 class SignalSource(Protocol):
@@ -106,7 +111,9 @@ class Replay:
         index = {s.day: i for i, s in enumerate(sessions)}
         trades: list[Trade] = []
         skipped: Counter[str] = Counter()
-        for day in days:
+        for n, day in enumerate(days, start=1):
+            if n % _PROGRESS_EVERY == 0:
+                logger.info("replayed %d/%d sessions, %d trades", n, len(days), len(trades))
             i = index.get(day)
             if i is None:
                 skipped["not a session"] += 1

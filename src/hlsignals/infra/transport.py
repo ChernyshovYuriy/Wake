@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import copy
 import json
+import logging
 from abc import ABC, abstractmethod
 from collections import deque
 from collections.abc import Mapping
@@ -27,6 +28,7 @@ from hlsignals.core.errors import (
 )
 
 Payload = Mapping[str, Any]
+logger = logging.getLogger(__name__)
 HTTP_OK = 200
 HTTP_TOO_MANY_REQUESTS = 429
 HTTP_SERVER_ERROR = 500
@@ -105,7 +107,8 @@ class RetryingTransport(Transport):
         for delay in self._policy.delays():
             try:
                 return self._inner.post(payload)
-            except RetryableError:
+            except RetryableError as exc:
+                logger.warning("%s failed (%s); retrying in %gs", payload.get("type"), exc, delay)
                 self._sleeper.sleep(delay)
         return self._inner.post(payload)
 

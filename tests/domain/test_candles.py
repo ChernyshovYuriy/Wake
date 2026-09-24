@@ -23,8 +23,3 @@ def test_price_at_uses_only_closed_candles(t: int, expected: float | None) -> No
 
 def test_price_at_empty() -> None:
     assert price_at([], T0_MS) is None
-
-
-def test_price_at_requires_sorted_candles() -> None:
-    with pytest.raises(ValueError, match="sorted"):
-        price_at(list(reversed(CANDLES)), T0_MS + 10 * HOUR_MS)

@@ -203,8 +203,9 @@ def _fill(raw: Any, wallet: str) -> Fill:
 
 
 def adapt_candles(raw: Any) -> list[Candle]:
-    """``candleSnapshot``: OHLCV strings, ``t``/``T`` open/close ms, ``n`` trade count."""
-    return [_candle(entry) for entry in _list(raw, "candles")]
+    """``candleSnapshot``: OHLCV strings, ``t``/``T`` open/close ms, ``n`` trade count.
+    Returned sorted by close time (``price_at`` relies on it)."""
+    return sorted((_candle(entry) for entry in _list(raw, "candles")), key=lambda c: c.close_ms)
 
 
 def _candle(raw: Any) -> Candle:

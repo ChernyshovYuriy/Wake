@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 import math
 import statistics
 from datetime import date
@@ -177,3 +178,9 @@ def test_benchmark_metrics_use_benchmark_returns() -> None:
     result = one_trade(SignalDirection.SHORT, cost_bps=5.0)
     assert result.metrics().mean == pytest.approx(-0.10 - 0.001)
     assert result.benchmark_metrics().mean == pytest.approx(0.10 - 0.001)
+
+
+def test_replay_logs_progress(caplog: pytest.LogCaptureFixture) -> None:
+    with caplog.at_level(logging.INFO):
+        replay(MomentumSource()).run(replay_days(20))
+    assert "replayed 10/20 sessions" in caplog.text

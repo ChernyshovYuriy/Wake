@@ -259,3 +259,9 @@ def test_tape_trade_needs_two_users(users: Any) -> None:
     raw[0]["users"] = users
     with pytest.raises(AdapterError, match="users"):
         adapt_tape_trades(raw)
+
+
+def test_candles_are_returned_sorted_even_if_the_api_was_not() -> None:
+    raw = list(reversed(response("candles_xyz_nvda_1h")))
+    candles = adapt_candles(raw)
+    assert [c.close_ms for c in candles] == sorted(c.close_ms for c in candles)

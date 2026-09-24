@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import logging
 from collections.abc import Callable
 from datetime import timedelta
 from typing import Any
@@ -347,3 +348,10 @@ def test_cache_evicts_expired_entries() -> None:
     clock.advance(timedelta(seconds=31))
     transport.post({"type": "c"})  # both older entries have expired: dropped, not kept
     assert transport.size == 1
+
+
+def test_retries_are_logged(caplog: pytest.LogCaptureFixture) -> None:
+    inner = Scripted(RetryableError("HTTP 503", status=503), "ok")
+    with caplog.at_level(logging.WARNING):
+        RetryingTransport(inner, POLICY, FakeSleeper()).post(PAYLOAD)
+    assert "perpDexs failed (HTTP 503); retrying in 0.5s" in caplog.text
