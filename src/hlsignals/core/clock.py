@@ -7,7 +7,8 @@ from datetime import UTC, datetime, timedelta
 from typing import Protocol
 
 MS_PER_SECOND = 1000
-MS_PER_DAY = 86_400 * MS_PER_SECOND
+MS_PER_HOUR = 3_600 * MS_PER_SECOND
+MS_PER_DAY = 24 * MS_PER_HOUR
 
 
 class Clock(Protocol):

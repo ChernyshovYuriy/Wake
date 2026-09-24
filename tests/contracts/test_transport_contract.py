@@ -76,7 +76,7 @@ BUILDERS: dict[str, Callable[[], Transport]] = {
     "retrying": lambda: retrying(fixtures()),
     "rate_limited": lambda: rate_limited(fixtures()),
     "caching": lambda: caching(fixtures()),
-    "full_stack": lambda: retrying(rate_limited(caching(fixture_http()))),
+    "full_stack": lambda: caching(retrying(rate_limited(fixture_http()))),
 }
 
 

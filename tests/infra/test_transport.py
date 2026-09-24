@@ -325,3 +325,14 @@ def test_fixture_rejects_duplicate_requests(tmp_path: Any) -> None:
     (tmp_path / "b.json").write_text(doc)
     with pytest.raises(ValueError, match="duplicate"):
         FixtureTransport(tmp_path)
+
+
+def test_cache_outside_rate_limit_makes_hits_free() -> None:
+    inner = Scripted("a")
+    rate, _, rate_sleeper = limited(inner, budget=20)
+    clock = FakeClock(AS_OF)
+    stack = CachingTransport(RetryingTransport(rate, POLICY, FakeSleeper()), 60.0, clock)
+    for _ in range(5):
+        assert stack.post(PAYLOAD) == "a"  # 5 x 20 weight would exceed the budget if charged
+    assert rate_sleeper.calls == []
+    assert len(inner.calls) == 1

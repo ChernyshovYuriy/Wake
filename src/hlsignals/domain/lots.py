@@ -70,6 +70,46 @@ class PositionGap:
     reported: Decimal
 
 
+@dataclass(frozen=True, slots=True)
+class RoundTrip:
+    """One position episode on a symbol: flat -> open (scaling allowed) -> flat.
+
+    A flip through zero closes one trip and opens the next. Orphan trips (opened before the
+    observed history, or broken by a position gap) have no PnL and must not be scored.
+    """
+
+    symbol: Symbol
+    side: PositionSide
+    open_ms: int | None
+    close_ms: int
+    realized_pnl: Decimal | None  # gross of fees
+    entry_notional: Decimal | None  # sum of px * size over every entry into the trip
+
+    @property
+    def is_orphan(self) -> bool:
+        return self.realized_pnl is None
+
+    @property
+    def return_frac(self) -> float | None:
+        """Realized PnL / capital put in (entry notional)."""
+        if self.realized_pnl is None or not self.entry_notional:
+            return None
+        return float(self.realized_pnl / self.entry_notional)
+
+    @property
+    def holding_ms(self) -> int | None:
+        return None if self.open_ms is None else self.close_ms - self.open_ms
+
+
+@dataclass(slots=True)
+class _Trip:
+    side: PositionSide
+    open_ms: int | None
+    pnl: Decimal = _ZERO
+    entry_notional: Decimal = _ZERO
+    orphan: bool = False
+
+
 @dataclass(slots=True)
 class _OpenLot:
     size: Decimal  # signed
@@ -85,6 +125,8 @@ class LotBook:
         self._first_start: dict[Symbol, Decimal] = {}
         self._api_pnl: defaultdict[Symbol, Decimal] = defaultdict(Decimal)
         self._closed: list[ClosedLot] = []
+        self._open_trips: dict[Symbol, _Trip] = {}
+        self._round_trips: list[RoundTrip] = []
         self._gaps: list[PositionGap] = []
         self._last_time_ms: int | None = None
 
@@ -109,6 +151,11 @@ class LotBook:
     @property
     def closed_lots(self) -> tuple[ClosedLot, ...]:
         return tuple(self._closed)
+
+    @property
+    def round_trips(self) -> tuple[RoundTrip, ...]:
+        """Completed position episodes, in close order."""
+        return tuple(self._round_trips)
 
     @property
     def gaps(self) -> tuple[PositionGap, ...]:
@@ -156,29 +203,61 @@ class LotBook:
             return
         lots = self._lots[symbol]
         lots.clear()
+        self._open_trips.pop(symbol, None)  # its accounting is no longer reliable
         if fill.start_position != 0:
             lots.append(_OpenLot(fill.start_position, None, None))
+            self._open_trips[symbol] = _Trip(_side_of(fill.start_position), None, orphan=True)
 
     def _match(self, fill: Fill, delta: Decimal) -> None:
-        lots = self._lots[fill.symbol]
+        symbol = fill.symbol
+        lots = self._lots[symbol]
         remaining = delta
         while remaining != 0 and lots and (lots[0].size > 0) != (remaining > 0):
             lot = lots[0]
             taken = min(abs(remaining), abs(lot.size))
-            self._closed.append(
-                ClosedLot(
-                    symbol=fill.symbol,
-                    side=PositionSide.LONG if lot.size > 0 else PositionSide.SHORT,
-                    size=taken,
-                    exit_px=fill.px,
-                    exit_time_ms=fill.time_ms,
-                    entry_px=lot.entry_px,
-                    entry_time_ms=lot.entry_time_ms,
-                )
+            closed = ClosedLot(
+                symbol=symbol,
+                side=_side_of(lot.size),
+                size=taken,
+                exit_px=fill.px,
+                exit_time_ms=fill.time_ms,
+                entry_px=lot.entry_px,
+                entry_time_ms=lot.entry_time_ms,
             )
+            self._closed.append(closed)
+            self._book_close(symbol, closed)
             lot.size += taken if lot.size < 0 else -taken
             remaining += taken if remaining < 0 else -taken
             if lot.size == 0:
                 lots.popleft()
+        if not lots and symbol in self._open_trips:
+            self._finish_trip(symbol, fill.time_ms)
         if remaining != 0:
             lots.append(_OpenLot(remaining, fill.px, fill.time_ms))
+            trip = self._open_trips.setdefault(symbol, _Trip(_side_of(remaining), fill.time_ms))
+            trip.entry_notional += fill.px * abs(remaining)
+
+    def _book_close(self, symbol: Symbol, closed: ClosedLot) -> None:
+        trip = self._open_trips[symbol]
+        pnl = closed.realized_pnl
+        if pnl is None:
+            trip.orphan = True
+        else:
+            trip.pnl += pnl
+
+    def _finish_trip(self, symbol: Symbol, close_ms: int) -> None:
+        trip = self._open_trips.pop(symbol)
+        self._round_trips.append(
+            RoundTrip(
+                symbol=symbol,
+                side=trip.side,
+                open_ms=trip.open_ms,
+                close_ms=close_ms,
+                realized_pnl=None if trip.orphan else trip.pnl,
+                entry_notional=None if trip.orphan else trip.entry_notional,
+            )
+        )
+
+
+def _side_of(size: Decimal) -> PositionSide:
+    return PositionSide.LONG if size > 0 else PositionSide.SHORT

@@ -22,6 +22,7 @@ from hlsignals.domain.models import (
     WalletRecord,
 )
 from hlsignals.domain.symbols import Symbol
+from hlsignals.wallets.scoring.slice import EquitySlice
 
 WALLET = "0x" + "a1" * 20
 OTHER_WALLET = "0x" + "b2" * 20
@@ -209,3 +210,57 @@ def make_tape_trade(**overrides: Any) -> TapeTrade:
         "seller": OTHER_WALLET,
     }
     return TapeTrade(**{**defaults, **overrides})
+
+
+def make_trips(
+    returns: Sequence[float],
+    *,
+    side: str = "long",
+    hold_ms: int = 24 * HOUR_MS,
+    gap_ms: int = 24 * HOUR_MS,
+    symbol: Symbol = NVDA,
+    t0_ms: int = T0_MS,
+    crossed: bool = True,
+) -> list[Fill]:
+    """Complete round trips of size 1 entered at 100, each earning ``returns[i]``."""
+    opening, closing = (
+        ("Open Long", "Close Long") if side == "long" else ("Open Short", "Close Short")
+    )
+    sign = 1 if side == "long" else -1
+    fills: list[Fill] = []
+    t = t0_ms
+    for r in returns:
+        exit_px = D(round(100 * (1 + sign * r), 6))
+        fills.append(make_fill(dir=opening, px=D(100), symbol=symbol, time_ms=t, crossed=crossed))
+        fills.append(
+            make_fill(
+                dir=closing,
+                px=exit_px,
+                symbol=symbol,
+                time_ms=t + hold_ms,
+                crossed=crossed,
+                start_position=D(sign),
+            )
+        )
+        t += hold_ms + gap_ms
+    return fills
+
+
+def make_equity_slice(
+    fills: Sequence[Fill],
+    *,
+    as_of_ms: int | None = None,
+    candles: Mapping[Symbol, Sequence[Candle]] | None = None,
+    raw_score: float | None = None,
+) -> EquitySlice:
+    """A slice over NVDA/AAPL; as_of defaults to one day after the last fill."""
+    last = max((f.time_ms for f in fills), default=T0_MS)
+    return EquitySlice.from_history(
+        WALLET,
+        sorted(fills, key=lambda f: f.time_ms),
+        positions=[],
+        equities=frozenset({NVDA, AAPL}),
+        as_of_ms=as_of_ms if as_of_ms is not None else last + 24 * HOUR_MS,
+        candles=candles,
+        raw_score=raw_score,
+    )

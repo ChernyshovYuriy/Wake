@@ -247,8 +247,10 @@ They will raise `AdapterError` (fail loud, plan rule 10) and get added when seen
 
 ## 12. Phase 2 notes
 
-- Transport stack order (builder, Phase 8): `Retrying(RateLimited(Caching(Http)))`. Retry is
-  outermost so every attempt, including one answered with 429, is charged to the budget.
+- Transport stack order: `Caching(Retrying(RateLimited(Http)))`. Cache outermost so hits cost
+  no rate budget; retry outside the rate limiter so every attempt, including one answered
+  with 429, is charged. (Corrected in Phase 5: the Phase 2 note had the cache innermost,
+  which would have charged cache hits.)
 - The rate limiter charges a request's base weight before the call and the
   response-size surcharge after it (the size is unknown until the response arrives).
 - The gateway does not know the universe, so it cannot reject unknown coins before the
@@ -283,3 +285,23 @@ They will raise `AdapterError` (fail loud, plan rule 10) and get added when seen
   in-memory or SQLite (upsert keeps min first_seen / max last_seen).
 - `TapeFeed` opens connections as context managers (websockets ≥ 13 sync API); the real
   connector `websocket_connect` is covered by `tests/live/test_live_census.py`.
+
+## 15. Phase 5 notes
+
+- **PLAN CHANGE: the scoring unit is the round trip, not the FIFO lot.** FIFO splits one
+  decision into many lots (scale-ins, partial exits), inflating sample sizes, especially
+  for market makers. `LotBook.round_trips` records each position episode (flat -> open ->
+  flat; a flip closes one and opens the next) with PnL, entry notional and holding time.
+  Orphan episodes (opened before the history, or broken by a gap) are never scored.
+  `ScoredWallet.n_closed_lots` holds the number of scored round trips.
+- Reversal-bait filter: an event is a round trip held <= the window; it counts as bait
+  when the price one window after the exit has moved against the trip by >= min_move
+  (1h candles, `domain/candles.price_at`, no look-ahead). Events without candles, or
+  whose window ends after as_of, are not evaluable.
+- Features with no scored trips score 0 (no evidence is not good evidence);
+  `prior_score` is skipped when absent and the weights renormalize.
+- `app/config.py` holds every default (TOML overrides arrive in Phase 8).
+- Live `vet` (2026-09-24, 30-day lookback): the 4 wallets that had just traded
+  `xyz:NVDA` were all market makers (0% taker, ~960 fills/day, ~15 s holds, or 1 round
+  trip in 8k fills). All were rejected with explicit reasons. A tape-selected sample is
+  dominated by makers, so a curated or census list is needed to find swing wallets.
