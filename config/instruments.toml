@@ -9,11 +9,21 @@
 #   - `crypto` entries are HIP-3 markets whose underlying is crypto (never signalled).
 #   - Which classes produce signals is set by [universe].include_classes in the app config.
 #
+# Sources (see docs/api-notes.md §1):
+#   xyz:  https://docs.trade.xyz/perpetuals/specifications-and-schedules/specification-index
+#         https://docs.trade.xyz/perpetuals/specifications-and-schedules/pre-ipo-specification-index
+#         (spec names differ from API tickers: CL = WTIOIL, SKHX = SKHYNIX, SMSN = SAMSUNG)
+#   para/io/mkts: no deployer spec found; https://oakresearch.io/en/hyperliquid/hip-3/markets/<dex>:<COIN>
+#
+# User rule: only securities listed in the USA (or Canada, none available as of this snapshot).
+#
 # Snapshot: live (non-delisted) markets on 2026-09-24. Re-check with
 #   pytest tests/phase0/test_instrument_catalog.py   (after recapturing fixtures)
 
 [classes]
 equity_us = [
+  # verified 2026-09-24 against the trade.xyz spec (was unverified; SKHY = Nasdaq ADS)
+  "xyz:BB", "xyz:BIRD", "xyz:BOT", "xyz:CBRS", "xyz:PURRDAT", "xyz:QNT", "xyz:SHAZ", "xyz:SKHY", "xyz:SPCX", "xyz:STRC",
   # xyz
   "xyz:AAPL", "xyz:AAOI", "xyz:AMAT", "xyz:AMD", "xyz:AMZN", "xyz:ARM", "xyz:ASML",
   "xyz:AVGO", "xyz:BABA", "xyz:BE", "xyz:BMNR", "xyz:BX", "xyz:COIN", "xyz:COST",
@@ -31,33 +41,30 @@ equity_us = [
   "io:GPRO", "io:IONQ", "io:NBIS", "io:SNDK",
 ]
 equity_foreign = [
-  # Listed outside the US (Seoul, Tokyo, Shanghai); no US listing to trade directly.
-  "xyz:GIGADEV", "xyz:HYUNDAI", "xyz:KIOXIA", "xyz:SKHY", "xyz:SMSN",
-  "xyz:SOFTBANK",
+  # Primary listing outside the US/Canada (KRX, TSE, SSE, SHE, HKEX); excluded by user rule.
+  "xyz:CXMT", "xyz:GIGADEV", "xyz:HYUNDAI", "xyz:KIOXIA", "xyz:MINIMAX", "xyz:SHEIN",
+  "xyz:SKHX", "xyz:SMSN", "xyz:SOFTBANK", "xyz:UNITREE", "xyz:ZHIPU",
+  "para:UNITREE",
 ]
 etf = [
+  "xyz:DRAM", "xyz:KSTR", "xyz:LYTE", "xyz:NCLD", "xyz:SNXX", "io:DRAM",
   "xyz:EWJ", "xyz:EWT", "xyz:EWY", "xyz:EWZ", "xyz:KORU", "xyz:MAGS", "xyz:SMH",
   "xyz:SOXL", "xyz:TLT", "xyz:URNM", "xyz:XBI", "xyz:XLE",
   "para:IGV",
   "io:EWY",
 ]
-index = [
-  "xyz:JP225", "xyz:KR200", "xyz:SP500", "xyz:XYZ100",
+index_us = [
+  "xyz:SP500", "xyz:XYZ100",
   "mkts:SMALL2000", "mkts:US500", "mkts:USTECH",
 ]
 commodity = [
   "xyz:BRENTOIL", "xyz:CL", "xyz:COPPER", "xyz:GOLD", "xyz:NATGAS", "xyz:PALLADIUM",
   "xyz:PLATINUM", "xyz:SILVER",
 ]
+index_foreign = ["xyz:JP225", "xyz:KR200"]
 fx = ["xyz:EUR", "xyz:GBP", "xyz:JPY"]
 rates = ["para:2Y", "para:10Y", "para:30Y", "mkts:USBOND"]
-pre_ipo = ["io:ANTH", "io:OAI"]
-crypto = ["para:BTCD", "para:OTHERS", "para:TOTAL2"]
-unverified = [
-  "xyz:BB", "xyz:BIRD", "xyz:BOT", "xyz:CBRS", "xyz:CXMT", "xyz:DRAM", "xyz:KSTR",
-  "xyz:LYTE", "xyz:MINIMAX", "xyz:NCLD", "xyz:OURA", "xyz:PURRDAT", "xyz:QNT",
-  "xyz:SHAZ", "xyz:SHEIN", "xyz:SKHX", "xyz:SNXX", "xyz:SPCX", "xyz:STRC",
-  "xyz:UNITREE", "xyz:ZHIPU",
-  "para:ANSEM", "para:TREAD", "para:UNITREE",
-  "io:DRAM",
-]
+pre_ipo = ["io:ANTH", "io:OAI", "xyz:OURA"]
+# ANSEM, TREAD: "Crypto" per OAK Research (no deployer spec found)
+crypto = ["para:ANSEM", "para:BTCD", "para:OTHERS", "para:TOTAL2", "para:TREAD"]
+unverified = []

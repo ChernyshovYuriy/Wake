@@ -1,8 +1,8 @@
 [universe]
 # Asset classes from config/instruments.toml that produce signals. Crypto is never signalled.
-# Excluded by default: equity_foreign / pre_ipo (no US-tradable security), unverified.
+# Only US (or Canadian, none live) listings: equity_foreign, index_foreign and pre_ipo excluded.
 instruments_path = "config/instruments.toml"
-include_classes = ["equity_us", "etf", "index", "commodity", "fx", "rates"]
+include_classes = ["equity_us", "etf", "index_us", "commodity", "fx", "rates"]
 dex_preference = ["xyz", "para", "io", "mkts"]  # docs/api-notes.md §1
 min_day_volume_usd = 1_000_000
 min_open_interest_usd = 250_000

@@ -36,12 +36,24 @@ the 7 `known_tickers`; crypto is never signalled.
   hint is `assetToFundingInterestRate = 0` on FX). A dex prefix is *not* enough: `para`
   lists crypto-derived indices.
 - Therefore `config/instruments.toml` classifies every live HIP-3 symbol into
-  `equity_us, equity_foreign, etf, index, commodity, fx, rates, pre_ipo, crypto,
-  unverified`. Symbols not in the catalog are **unclassified**: excluded and reported in
-  diagnostics, never guessed. `unverified` symbols are excluded until a human classifies
-  them.
-- `[universe].include_classes` (config) picks which classes produce signals. Default: all
-  but `crypto`, `pre_ipo`, `equity_foreign` (no US-tradable security) and `unverified`.
+  `equity_us, equity_foreign, etf, index_us, index_foreign, commodity, fx, rates, pre_ipo,
+  crypto, unverified`. Symbols not in the catalog are **unclassified**: excluded and
+  reported in diagnostics, never guessed. `unverified` symbols are excluded until a human
+  classifies them.
+- **Sources for the classes:** the `xyz` deployer publishes the exact underlying and listing
+  venue for every market:
+  https://docs.trade.xyz/perpetuals/specifications-and-schedules/specification-index and
+  https://docs.trade.xyz/perpetuals/specifications-and-schedules/pre-ipo-specification-index.
+  Spec names differ from API tickers for `CL` (= WTIOIL), `SKHX` (= SKHYNIX, KRX) and
+  `SMSN` (= SAMSUNG, KRX). `para` / `io` / `mkts` have no deployer spec that I found; they
+  were classified from the ticker, cross-checked where unclear on the third-party
+  https://oakresearch.io/en/hyperliquid/hip-3/markets/<dex>:<COIN>.
+- **User rule (Phase 0 review): only securities listed in the USA, or Canada if available.**
+  US-listed ADSs of foreign companies (BABA, TSM, ASML, NOK, SKHY) count as US listings.
+  No live market references a Canadian listing (BlackBerry `xyz:BB` references NYSE: BB).
+- `[universe].include_classes` (config) picks which classes produce signals. Default:
+  `equity_us, etf, index_us, commodity, fx, rates`. Excluded: `equity_foreign`,
+  `index_foreign`, `pre_ipo`, `crypto`, `unverified`.
 - `known_tickers` is replaced by `instruments_path` + `include_classes`.
 - `Symbol.is_equity` becomes **`Symbol.is_hip3`** (has a dex prefix). Core crypto, spot
   and outcome coins are recognised only so they can be dropped. Asset-class lookup gets a
