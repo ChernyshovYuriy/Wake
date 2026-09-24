@@ -1,0 +1,586 @@
+{
+ "request": {
+  "dex": "mkts",
+  "type": "metaAndAssetCtxs"
+ },
+ "response": [
+  {
+   "collateralToken": 0,
+   "marginTables": [
+    [
+     50,
+     {
+      "description": "",
+      "marginTiers": [
+       {
+        "lowerBound": "0.0",
+        "maxLeverage": 50
+       }
+      ]
+     }
+    ]
+   ],
+   "universe": [
+    {
+     "deployerFeeScale": "1.0",
+     "growthMode": "enabled",
+     "lastFeeScaleChangeTime": "2026-06-25T01:22:23.589215617",
+     "marginTableId": 25,
+     "maxLeverage": 25,
+     "name": "mkts:US500",
+     "szDecimals": 3
+    },
+    {
+     "deployerFeeScale": "1.0",
+     "isDelisted": true,
+     "lastFeeScaleChangeTime": "2026-06-22T10:27:31.147146848",
+     "marginMode": "strictIsolated",
+     "marginTableId": 10,
+     "maxLeverage": 10,
+     "name": "mkts:BABA",
+     "onlyIsolated": true,
+     "szDecimals": 3
+    },
+    {
+     "deployerFeeScale": "1.0",
+     "isDelisted": true,
+     "lastFeeScaleChangeTime": "2026-06-22T10:27:31.147146848",
+     "marginMode": "strictIsolated",
+     "marginTableId": 50,
+     "maxLeverage": 50,
+     "name": "mkts:EUR",
+     "onlyIsolated": true,
+     "szDecimals": 1
+    },
+    {
+     "deployerFeeScale": "1.0",
+     "growthMode": "enabled",
+     "lastFeeScaleChangeTime": "2026-08-26T13:27:40.995862743",
+     "marginMode": "strictIsolated",
+     "marginTableId": 10,
+     "maxLeverage": 10,
+     "name": "mkts:USBOND",
+     "onlyIsolated": true,
+     "szDecimals": 3
+    },
+    {
+     "deployerFeeScale": "1.0",
+     "growthMode": "enabled",
+     "lastFeeScaleChangeTime": "2026-08-26T13:26:52.535586577",
+     "marginTableId": 20,
+     "maxLeverage": 20,
+     "name": "mkts:SMALL2000",
+     "szDecimals": 3
+    },
+    {
+     "deployerFeeScale": "1.0",
+     "growthMode": "enabled",
+     "lastFeeScaleChangeTime": "2026-06-25T01:22:23.589215617",
+     "marginTableId": 25,
+     "maxLeverage": 25,
+     "name": "mkts:USTECH",
+     "szDecimals": 3
+    },
+    {
+     "deployerFeeScale": "1.0",
+     "isDelisted": true,
+     "lastFeeScaleChangeTime": "2026-06-22T10:27:31.147146848",
+     "marginMode": "strictIsolated",
+     "marginTableId": 15,
+     "maxLeverage": 15,
+     "name": "mkts:USENERGY",
+     "onlyIsolated": true,
+     "szDecimals": 3
+    },
+    {
+     "deployerFeeScale": "1.0",
+     "isDelisted": true,
+     "lastFeeScaleChangeTime": "2026-06-22T10:27:31.147146848",
+     "marginMode": "strictIsolated",
+     "marginTableId": 10,
+     "maxLeverage": 10,
+     "name": "mkts:USOIL",
+     "onlyIsolated": true,
+     "szDecimals": 3
+    },
+    {
+     "deployerFeeScale": "1.0",
+     "isDelisted": true,
+     "lastFeeScaleChangeTime": "2026-06-22T10:27:31.147146848",
+     "marginMode": "strictIsolated",
+     "marginTableId": 12,
+     "maxLeverage": 12,
+     "name": "mkts:TSLA",
+     "onlyIsolated": true,
+     "szDecimals": 3
+    },
+    {
+     "deployerFeeScale": "1.0",
+     "isDelisted": true,
+     "lastFeeScaleChangeTime": "2026-06-22T10:27:31.147146848",
+     "marginMode": "strictIsolated",
+     "marginTableId": 20,
+     "maxLeverage": 20,
+     "name": "mkts:SILVER",
+     "onlyIsolated": true,
+     "szDecimals": 3
+    },
+    {
+     "deployerFeeScale": "1.0",
+     "isDelisted": true,
+     "lastFeeScaleChangeTime": "2026-06-22T10:27:31.147146848",
+     "marginMode": "strictIsolated",
+     "marginTableId": 25,
+     "maxLeverage": 25,
+     "name": "mkts:GOLD",
+     "onlyIsolated": true,
+     "szDecimals": 4
+    },
+    {
+     "deployerFeeScale": "1.0",
+     "isDelisted": true,
+     "lastFeeScaleChangeTime": "2026-06-22T10:27:31.147146848",
+     "marginMode": "strictIsolated",
+     "marginTableId": 15,
+     "maxLeverage": 15,
+     "name": "mkts:AAPL",
+     "onlyIsolated": true,
+     "szDecimals": 3
+    },
+    {
+     "deployerFeeScale": "1.0",
+     "isDelisted": true,
+     "lastFeeScaleChangeTime": "2026-06-22T10:27:31.147146848",
+     "marginMode": "strictIsolated",
+     "marginTableId": 15,
+     "maxLeverage": 15,
+     "name": "mkts:GOOGL",
+     "onlyIsolated": true,
+     "szDecimals": 3
+    },
+    {
+     "deployerFeeScale": "1.0",
+     "isDelisted": true,
+     "lastFeeScaleChangeTime": "2026-06-22T10:27:31.147146848",
+     "marginMode": "strictIsolated",
+     "marginTableId": 15,
+     "maxLeverage": 15,
+     "name": "mkts:SEMI",
+     "onlyIsolated": true,
+     "szDecimals": 3
+    },
+    {
+     "deployerFeeScale": "1.0",
+     "isDelisted": true,
+     "lastFeeScaleChangeTime": "2026-06-22T10:27:31.147146848",
+     "marginMode": "strictIsolated",
+     "marginTableId": 10,
+     "maxLeverage": 10,
+     "name": "mkts:GLDMINE",
+     "onlyIsolated": true,
+     "szDecimals": 3
+    },
+    {
+     "deployerFeeScale": "1.0",
+     "isDelisted": true,
+     "lastFeeScaleChangeTime": "2026-06-22T10:27:31.147146848",
+     "marginMode": "strictIsolated",
+     "marginTableId": 12,
+     "maxLeverage": 12,
+     "name": "mkts:NVDA",
+     "onlyIsolated": true,
+     "szDecimals": 3
+    },
+    {
+     "deployerFeeScale": "1.0",
+     "isDelisted": true,
+     "lastFeeScaleChangeTime": "2026-06-22T10:27:31.147146848",
+     "marginMode": "strictIsolated",
+     "marginTableId": 10,
+     "maxLeverage": 10,
+     "name": "mkts:TENCENT",
+     "onlyIsolated": true,
+     "szDecimals": 3
+    },
+    {
+     "deployerFeeScale": "1.0",
+     "isDelisted": true,
+     "lastFeeScaleChangeTime": "2026-06-22T10:27:31.147146848",
+     "marginMode": "strictIsolated",
+     "marginTableId": 25,
+     "maxLeverage": 25,
+     "name": "mkts:JPN225",
+     "onlyIsolated": true,
+     "szDecimals": 5
+    },
+    {
+     "deployerFeeScale": "1.0",
+     "isDelisted": true,
+     "lastFeeScaleChangeTime": "2026-06-22T10:27:31.147146848",
+     "marginMode": "strictIsolated",
+     "marginTableId": 10,
+     "maxLeverage": 10,
+     "name": "mkts:MU",
+     "onlyIsolated": true,
+     "szDecimals": 3
+    },
+    {
+     "deployerFeeScale": "1.0",
+     "isDelisted": true,
+     "lastFeeScaleChangeTime": "2026-06-22T10:27:31.147146848",
+     "marginMode": "strictIsolated",
+     "marginTableId": 12,
+     "maxLeverage": 12,
+     "name": "mkts:PLTR",
+     "onlyIsolated": true,
+     "szDecimals": 3
+    },
+    {
+     "deployerFeeScale": "1.0",
+     "isDelisted": true,
+     "lastFeeScaleChangeTime": "2026-06-22T10:27:31.147146848",
+     "marginMode": "strictIsolated",
+     "marginTableId": 10,
+     "maxLeverage": 10,
+     "name": "mkts:XIAOMI",
+     "onlyIsolated": true,
+     "szDecimals": 3
+    },
+    {
+     "deployerFeeScale": "1.0",
+     "isDelisted": true,
+     "lastFeeScaleChangeTime": "2026-06-22T10:27:31.147146848",
+     "marginMode": "strictIsolated",
+     "marginTableId": 10,
+     "maxLeverage": 10,
+     "name": "mkts:BMNR",
+     "onlyIsolated": true,
+     "szDecimals": 3
+    },
+    {
+     "deployerFeeScale": "1.0",
+     "isDelisted": true,
+     "lastFeeScaleChangeTime": "2026-06-22T10:27:31.147146848",
+     "marginMode": "strictIsolated",
+     "marginTableId": 10,
+     "maxLeverage": 10,
+     "name": "mkts:RTX",
+     "onlyIsolated": true,
+     "szDecimals": 3
+    },
+    {
+     "deployerFeeScale": "1.0",
+     "isDelisted": true,
+     "marginMode": "strictIsolated",
+     "marginTableId": 5,
+     "maxLeverage": 5,
+     "name": "mkts:BVIV",
+     "onlyIsolated": true,
+     "szDecimals": 2
+    }
+   ]
+  },
+  [
+   {
+    "dayBaseVlm": "17592.909",
+    "dayNtlVlm": "13466376.3495199922",
+    "funding": "0.0000057078",
+    "impactPxs": [
+     "768.521",
+     "768.71"
+    ],
+    "markPx": "768.6",
+    "midPx": "768.585",
+    "openInterest": "2009.166",
+    "oraclePx": "768.41",
+    "premium": "0.0002674354",
+    "prevDayPx": "767.52"
+   },
+   {
+    "dayBaseVlm": "0.0",
+    "dayNtlVlm": "0.0",
+    "funding": "0.0",
+    "impactPxs": null,
+    "markPx": "116.54",
+    "midPx": null,
+    "openInterest": "0.0",
+    "oraclePx": "116.54",
+    "premium": null,
+    "prevDayPx": "116.54"
+   },
+   {
+    "dayBaseVlm": "0.0",
+    "dayNtlVlm": "0.0",
+    "funding": "0.0",
+    "impactPxs": null,
+    "markPx": "1.1612",
+    "midPx": null,
+    "openInterest": "0.0",
+    "oraclePx": "1.1612",
+    "premium": null,
+    "prevDayPx": "1.1612"
+   },
+   {
+    "dayBaseVlm": "12167.108",
+    "dayNtlVlm": "977851.3182819997",
+    "funding": "0.0000057078",
+    "impactPxs": [
+     "80.044",
+     "80.078"
+    ],
+    "markPx": "80.044",
+    "midPx": "80.048",
+    "openInterest": "4612.728",
+    "oraclePx": "80.042",
+    "premium": "0.0002373754",
+    "prevDayPx": "80.497"
+   },
+   {
+    "dayBaseVlm": "1532.03",
+    "dayNtlVlm": "430274.95175",
+    "funding": "0.0000703644",
+    "impactPxs": [
+     "281.65",
+     "281.85"
+    ],
+    "markPx": "281.66",
+    "midPx": "281.75",
+    "openInterest": "2878.576",
+    "oraclePx": "281.57",
+    "premium": "0.0006392726",
+    "prevDayPx": "282.39"
+   },
+   {
+    "dayBaseVlm": "5466.404",
+    "dayNtlVlm": "4030087.42191",
+    "funding": "0.0000057078",
+    "impactPxs": [
+     "742.25",
+     "742.447"
+    ],
+    "markPx": "742.35",
+    "midPx": "742.365",
+    "openInterest": "3874.078",
+    "oraclePx": "742.2",
+    "premium": "0.0002000808",
+    "prevDayPx": "738.44"
+   },
+   {
+    "dayBaseVlm": "0.0",
+    "dayNtlVlm": "0.0",
+    "funding": "0.0",
+    "impactPxs": null,
+    "markPx": "58.247",
+    "midPx": null,
+    "openInterest": "0.0",
+    "oraclePx": "58.247",
+    "premium": null,
+    "prevDayPx": "58.247"
+   },
+   {
+    "dayBaseVlm": "0.0",
+    "dayNtlVlm": "0.0",
+    "funding": "0.0",
+    "impactPxs": null,
+    "markPx": "114.1",
+    "midPx": null,
+    "openInterest": "0.0",
+    "oraclePx": "114.1",
+    "premium": null,
+    "prevDayPx": "114.1"
+   },
+   {
+    "dayBaseVlm": "0.0",
+    "dayNtlVlm": "0.0",
+    "funding": "0.0",
+    "impactPxs": null,
+    "markPx": "386.5",
+    "midPx": null,
+    "openInterest": "0.0",
+    "oraclePx": "386.5",
+    "premium": null,
+    "prevDayPx": "386.5"
+   },
+   {
+    "dayBaseVlm": "0.0",
+    "dayNtlVlm": "0.0",
+    "funding": "0.0",
+    "impactPxs": null,
+    "markPx": "70.451",
+    "midPx": null,
+    "openInterest": "0.0",
+    "oraclePx": "70.451",
+    "premium": null,
+    "prevDayPx": "70.451"
+   },
+   {
+    "dayBaseVlm": "0.0",
+    "dayNtlVlm": "0.0",
+    "funding": "0.0",
+    "impactPxs": null,
+    "markPx": "4348.8",
+    "midPx": null,
+    "openInterest": "0.0",
+    "oraclePx": "4348.8",
+    "premium": null,
+    "prevDayPx": "4348.8"
+   },
+   {
+    "dayBaseVlm": "0.0",
+    "dayNtlVlm": "0.0",
+    "funding": "0.0",
+    "impactPxs": null,
+    "markPx": "292.11",
+    "midPx": null,
+    "openInterest": "0.0",
+    "oraclePx": "292.11",
+    "premium": null,
+    "prevDayPx": "292.11"
+   },
+   {
+    "dayBaseVlm": "0.0",
+    "dayNtlVlm": "0.0",
+    "funding": "0.0",
+    "impactPxs": null,
+    "markPx": "358.55",
+    "midPx": null,
+    "openInterest": "0.0",
+    "oraclePx": "358.55",
+    "premium": null,
+    "prevDayPx": "358.55"
+   },
+   {
+    "dayBaseVlm": "0.0",
+    "dayNtlVlm": "0.0",
+    "funding": "0.0",
+    "impactPxs": null,
+    "markPx": "543.11",
+    "midPx": null,
+    "openInterest": "0.0",
+    "oraclePx": "543.11",
+    "premium": null,
+    "prevDayPx": "543.11"
+   },
+   {
+    "dayBaseVlm": "0.0",
+    "dayNtlVlm": "0.0",
+    "funding": "0.0",
+    "impactPxs": null,
+    "markPx": "73.889",
+    "midPx": null,
+    "openInterest": "0.0",
+    "oraclePx": "73.889",
+    "premium": null,
+    "prevDayPx": "73.889"
+   },
+   {
+    "dayBaseVlm": "0.0",
+    "dayNtlVlm": "0.0",
+    "funding": "0.0",
+    "impactPxs": null,
+    "markPx": "211.07",
+    "midPx": null,
+    "openInterest": "0.0",
+    "oraclePx": "211.07",
+    "premium": null,
+    "prevDayPx": "211.07"
+   },
+   {
+    "dayBaseVlm": "0.0",
+    "dayNtlVlm": "0.0",
+    "funding": "0.0",
+    "impactPxs": null,
+    "markPx": "465.0",
+    "midPx": null,
+    "openInterest": "0.0",
+    "oraclePx": "465.0",
+    "premium": null,
+    "prevDayPx": "465.0"
+   },
+   {
+    "dayBaseVlm": "0.0",
+    "dayNtlVlm": "0.0",
+    "funding": "0.0",
+    "impactPxs": null,
+    "markPx": "56942.0",
+    "midPx": null,
+    "openInterest": "0.0",
+    "oraclePx": "56942.0",
+    "premium": null,
+    "prevDayPx": "56942.0"
+   },
+   {
+    "dayBaseVlm": "0.0",
+    "dayNtlVlm": "0.0",
+    "funding": "0.0",
+    "impactPxs": null,
+    "markPx": "1080.7",
+    "midPx": null,
+    "openInterest": "0.0",
+    "oraclePx": "1080.7",
+    "premium": null,
+    "prevDayPx": "1080.7"
+   },
+   {
+    "dayBaseVlm": "0.0",
+    "dayNtlVlm": "0.0",
+    "funding": "0.0",
+    "impactPxs": null,
+    "markPx": "130.51",
+    "midPx": null,
+    "openInterest": "0.0",
+    "oraclePx": "130.51",
+    "premium": null,
+    "prevDayPx": "130.51"
+   },
+   {
+    "dayBaseVlm": "0.0",
+    "dayNtlVlm": "0.0",
+    "funding": "0.0",
+    "impactPxs": null,
+    "markPx": "26.311",
+    "midPx": null,
+    "openInterest": "0.0",
+    "oraclePx": "26.311",
+    "premium": null,
+    "prevDayPx": "26.311"
+   },
+   {
+    "dayBaseVlm": "0.0",
+    "dayNtlVlm": "0.0",
+    "funding": "0.0",
+    "impactPxs": null,
+    "markPx": "15.749",
+    "midPx": null,
+    "openInterest": "0.0",
+    "oraclePx": "15.749",
+    "premium": null,
+    "prevDayPx": "15.749"
+   },
+   {
+    "dayBaseVlm": "0.0",
+    "dayNtlVlm": "0.0",
+    "funding": "0.0",
+    "impactPxs": null,
+    "markPx": "181.52",
+    "midPx": null,
+    "openInterest": "0.0",
+    "oraclePx": "181.52",
+    "premium": null,
+    "prevDayPx": "181.52"
+   },
+   {
+    "dayBaseVlm": "0.0",
+    "dayNtlVlm": "0.0",
+    "funding": "0.0",
+    "impactPxs": null,
+    "markPx": "38.137",
+    "midPx": null,
+    "openInterest": "0.0",
+    "oraclePx": "38.137",
+    "premium": null,
+    "prevDayPx": "40.724"
+   }
+  ]
+ ]
+}

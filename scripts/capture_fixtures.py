@@ -25,6 +25,7 @@ import httpx
 INFO_URL = "https://api.hyperliquid.xyz/info"
 EQUITY_DEX = "xyz"
 SECOND_DEX = "para"
+OTHER_LIVE_DEXES = ("io", "mkts")
 PROBE_COIN = "xyz:NVDA"
 FILL_WINDOW_MS = 3 * 86_400_000
 CANDLE_1H_WINDOW_MS = 3 * 86_400_000
@@ -135,6 +136,10 @@ def main() -> None:
         "perp_dexs": {"type": "perpDexs"},
         "meta_and_ctxs_xyz": {"type": "metaAndAssetCtxs", "dex": EQUITY_DEX},
         "meta_and_ctxs_para": {"type": "metaAndAssetCtxs", "dex": SECOND_DEX},
+        **{
+            f"meta_and_ctxs_{dex}": {"type": "metaAndAssetCtxs", "dex": dex}
+            for dex in OTHER_LIVE_DEXES
+        },
         "l2_book_xyz_nvda": {"type": "l2Book", "coin": PROBE_COIN},
         "recent_trades_xyz_nvda": {"type": "recentTrades", "coin": PROBE_COIN},
         "candles_xyz_nvda_1h": {

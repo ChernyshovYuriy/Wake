@@ -1,0 +1,63 @@
+# Instrument catalog: asset class of every live HIP-3 market (docs/api-notes.md §1).
+#
+# The Hyperliquid API exposes no asset-class metadata, so this catalog is the only way to
+# tell a security from a crypto-derived market. Rules:
+#   - A symbol absent from this file is UNCLASSIFIED: excluded from signals and reported
+#     in diagnostics. Nothing is ever guessed at runtime.
+#   - `unverified` = listed on HIP-3 but the underlying was not confirmed; excluded until a
+#     human moves it to a real class.
+#   - `crypto` entries are HIP-3 markets whose underlying is crypto (never signalled).
+#   - Which classes produce signals is set by [universe].include_classes in the app config.
+#
+# Snapshot: live (non-delisted) markets on 2026-09-24. Re-check with
+#   pytest tests/phase0/test_instrument_catalog.py   (after recapturing fixtures)
+
+[classes]
+equity_us = [
+  # xyz
+  "xyz:AAPL", "xyz:AAOI", "xyz:AMAT", "xyz:AMD", "xyz:AMZN", "xyz:ARM", "xyz:ASML",
+  "xyz:AVGO", "xyz:BABA", "xyz:BE", "xyz:BMNR", "xyz:BX", "xyz:COIN", "xyz:COST",
+  "xyz:CRCL", "xyz:CRWD", "xyz:CRWV", "xyz:CVX", "xyz:DELL", "xyz:DKNG", "xyz:EBAY",
+  "xyz:GEV", "xyz:GME", "xyz:GOOGL", "xyz:HIMS", "xyz:HOOD", "xyz:IBM", "xyz:INTC",
+  "xyz:IREN", "xyz:LITE", "xyz:LLY", "xyz:META", "xyz:MRNA", "xyz:MRVL", "xyz:MSFT",
+  "xyz:MSTR", "xyz:MU", "xyz:NBIS", "xyz:NET", "xyz:NFLX", "xyz:NOK", "xyz:NOW",
+  "xyz:NVDA", "xyz:ORCL", "xyz:PLTR", "xyz:QCOM", "xyz:RDDT", "xyz:RIVN", "xyz:RKLB",
+  "xyz:SNDK", "xyz:TSLA", "xyz:TSM", "xyz:USAR", "xyz:WDC", "xyz:ZM",
+  # para
+  "para:AAOI", "para:AVGO", "para:CIEN", "para:CIFR", "para:COHR", "para:CRDO",
+  "para:CRWD", "para:GLW", "para:IREN", "para:LRCX", "para:MELI", "para:NET",
+  "para:RDDT", "para:SMCI", "para:SOFI", "para:STX", "para:TER", "para:TTWO", "para:VST",
+  # io
+  "io:GPRO", "io:IONQ", "io:NBIS", "io:SNDK",
+]
+equity_foreign = [
+  # Listed outside the US (Seoul, Tokyo, Shanghai); no US listing to trade directly.
+  "xyz:GIGADEV", "xyz:HYUNDAI", "xyz:KIOXIA", "xyz:SKHY", "xyz:SMSN",
+  "xyz:SOFTBANK",
+]
+etf = [
+  "xyz:EWJ", "xyz:EWT", "xyz:EWY", "xyz:EWZ", "xyz:KORU", "xyz:MAGS", "xyz:SMH",
+  "xyz:SOXL", "xyz:TLT", "xyz:URNM", "xyz:XBI", "xyz:XLE",
+  "para:IGV",
+  "io:EWY",
+]
+index = [
+  "xyz:JP225", "xyz:KR200", "xyz:SP500", "xyz:XYZ100",
+  "mkts:SMALL2000", "mkts:US500", "mkts:USTECH",
+]
+commodity = [
+  "xyz:BRENTOIL", "xyz:CL", "xyz:COPPER", "xyz:GOLD", "xyz:NATGAS", "xyz:PALLADIUM",
+  "xyz:PLATINUM", "xyz:SILVER",
+]
+fx = ["xyz:EUR", "xyz:GBP", "xyz:JPY"]
+rates = ["para:2Y", "para:10Y", "para:30Y", "mkts:USBOND"]
+pre_ipo = ["io:ANTH", "io:OAI"]
+crypto = ["para:BTCD", "para:OTHERS", "para:TOTAL2"]
+unverified = [
+  "xyz:BB", "xyz:BIRD", "xyz:BOT", "xyz:CBRS", "xyz:CXMT", "xyz:DRAM", "xyz:KSTR",
+  "xyz:LYTE", "xyz:MINIMAX", "xyz:NCLD", "xyz:OURA", "xyz:PURRDAT", "xyz:QNT",
+  "xyz:SHAZ", "xyz:SHEIN", "xyz:SKHX", "xyz:SNXX", "xyz:SPCX", "xyz:STRC",
+  "xyz:UNITREE", "xyz:ZHIPU",
+  "para:ANSEM", "para:TREAD", "para:UNITREE",
+  "io:DRAM",
+]

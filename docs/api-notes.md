@@ -17,33 +17,52 @@ Wallet addresses are replaced by deterministic pseudonyms
 core (crypto) dex. Observed builder dexes: `xyz, flx, vntl, hyna, km, abcd, cash, para,
 mkts, io`.
 
-| dex | status 2026-09-24 | equities? |
+| dex | status 2026-09-24 | contents |
 |---|---|---|
-| `xyz` (XYZ) | 109 live / 124 markets, ~$2.5B 24h volume | **Yes — all 7 default `known_tickers`** plus ~60 more single names |
-| `para` (Paragon) | 29 live, ~$6M 24h | Some single names (AVGO, NET, CRWD, RDDT, …), none of the 7 defaults |
-| `io` (EntropyIO) | 8 live, ~$23M | Mostly pre-IPO/theme (OAI, ANTH, SNDK, IONQ, …) |
-| `mkts` | 4 live (indices); all single stocks delisted | No |
-| `km`, `cash`, `flx`, `vntl`, `hyna`, `abcd` | every market delisted | No |
+| `xyz` (XYZ) | 109 live / 124 markets, ~$2.5B 24h volume | US and foreign stocks, ETFs, indices, commodities, FX |
+| `para` (Paragon) | 29 live, ~$6M 24h | US stocks, rates (2Y/10Y/30Y), **3 crypto indices** (`TOTAL2`, `OTHERS`, `BTCD`) |
+| `io` (EntropyIO) | 8 live, ~$23M | US stocks, ETF, pre-IPO (`OAI`, `ANTH`) |
+| `mkts` | 4 live; all single stocks delisted | Indices, bonds |
+| `km`, `cash`, `flx`, `vntl`, `hyna`, `abcd` | every market delisted | — |
 
-**Default `dex_preference = ["xyz", "para", "io"]`.** Discovery must still run at runtime:
-dexes are delisted wholesale (`km`, `cash`).
+**Default `dex_preference = ["xyz", "para", "io", "mkts"]`.** Discovery must still run at
+runtime: dexes are delisted wholesale (`km`, `cash`).
 
-**PLAN CHANGE — equity vs non-equity is not a dex property.** `xyz` also lists commodities
-(`GOLD`, `CL`, `BRENTOIL`, `NATGAS`, `COPPER`), FX (`EUR`, `JPY`, `KRW`), indices (`SP500`,
-`XYZ100`, `JP225`, `KR200`), ETFs (`SMH`, `SOXL`, `TLT`, `EWY`) and pre-IPO names.
-`Symbol.is_equity` therefore means "has a dex prefix" (HIP-3, i.e. not core crypto /
-spot / outcome). Whether a symbol is a US equity *for signalling* is decided by membership in
-the configured `known_tickers` (universe layer), not by the symbol parser.
+**PLAN CHANGE — the universe is "every non-crypto security", classified by a catalog.**
+Decision (user, Phase 0 review): the project signals any non-crypto instrument, not only
+the 7 `known_tickers`; crypto is never signalled.
+
+- The API has **no asset-class metadata** (`perpDexs` / `meta` fields checked; the only
+  hint is `assetToFundingInterestRate = 0` on FX). A dex prefix is *not* enough: `para`
+  lists crypto-derived indices.
+- Therefore `config/instruments.toml` classifies every live HIP-3 symbol into
+  `equity_us, equity_foreign, etf, index, commodity, fx, rates, pre_ipo, crypto,
+  unverified`. Symbols not in the catalog are **unclassified**: excluded and reported in
+  diagnostics, never guessed. `unverified` symbols are excluded until a human classifies
+  them.
+- `[universe].include_classes` (config) picks which classes produce signals. Default: all
+  but `crypto`, `pre_ipo`, `equity_foreign` (no US-tradable security) and `unverified`.
+- `known_tickers` is replaced by `instruments_path` + `include_classes`.
+- `Symbol.is_equity` becomes **`Symbol.is_hip3`** (has a dex prefix). Core crypto, spot
+  and outcome coins are recognised only so they can be dropped. Asset-class lookup gets a
+  single home in the universe layer (`universe/instruments.py`).
+- `tests/phase0/test_instrument_catalog.py` fails if a live fixture market is missing
+  from the catalog or the catalog lists a symbol that is not live.
+- The same underlying can list on several dexes (e.g. `xyz:AVGO`, `para:AVGO`). Phase 3
+  picks one per underlying by `dex_preference`.
+- Non-equity classes follow other sessions (commodity/FX nearly 24/5). The plan already
+  selects the calendar per instrument class. Overnight and backtest logic must use the
+  class's calendar, and backtests need a proxy price series per class (e.g. an ETF) — Phase 9.
 
 ## 2. Symbol format
 
 - Everywhere (`meta.universe[].name`, fills `coin`, positions `coin`, `recentTrades`,
   `l2Book`, `candleSnapshot`, WS `trades`): **`"<dex>:<COIN>"`**, e.g. `xyz:NVDA`.
   The universe names already include the prefix.
-- Core perps: bare uppercase (`BTC`, `ETH`, `HYPE`); fills may also carry mixed/other case
-  on core (e.g. `kPEPE`), so the dex part is lower-case but **coin case must be preserved,
-  not upper-cased**. **PLAN CHANGE:** "lowercase normalized" in the §8 matrix applies to the
-  dex part only.
+- Core perps: bare names (`BTC`, `ETH`, `HYPE`, also mixed case like `kPEPE`). Crypto is
+  out of scope, so these only need to be *recognised as non-HIP-3* so their fills get
+  dropped. The parser keeps the coin case as the API returns it (no normalisation), and
+  lower-cases the dex part only. **PLAN CHANGE** to "lowercase normalized" in the §8 matrix.
 - Other non-perp coins appear in `userFillsByTime`: spot `@<n>` (e.g. `@142`) or
   `PURR/USDC`, and outcome markets `#<n>` (e.g. `#25510`). These are never HIP-3 equities.
 - Bare `NVDA` in `candleSnapshot` → **HTTP 500 with body `null`** (fixture
@@ -118,7 +137,11 @@ They will raise `AdapterError` (fail loud, plan rule 10) and get added when seen
   Ctx: `funding, openInterest, prevDayPx, dayNtlVlm, premium, oraclePx, markPx, midPx,
   impactPxs, dayBaseVlm` — all strings (`midPx`/`impactPxs` may be null on dead markets).
   **PLAN CHANGE: `openInterest` is in base units (contracts), not USD.**
-  `oi_usd = openInterest × markPx` is computed in the adapter.
+  `oi_usd = openInterest × markPx` is computed in the adapter. This is **not** about
+  executing trades: the flow signal is "smart-money $ flow ÷ market OI $", so a $1M whale
+  buy counts for more in a $5M market than in a $500M one, and the min-OI filter drops
+  markets too thin for the signal to mean anything. Both need OI in the same unit as flow
+  (USD).
 - `clearinghouseState {user, dex}` → `{marginSummary, crossMarginSummary,
   crossMaintenanceMarginUsed, withdrawable, assetPositions, time}`.
   **The `dex` param is required for HIP-3 positions**; without it only core positions come

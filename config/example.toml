@@ -1,6 +1,9 @@
 [universe]
-known_tickers = ["AAPL","GOOGL","MSFT","META","NVDA","AMZN","TSLA"]
-dex_preference = ["xyz", "para", "io"]  # docs/api-notes.md §1
+# Asset classes from config/instruments.toml that produce signals. Crypto is never signalled.
+# Excluded by default: equity_foreign / pre_ipo (no US-tradable security), unverified.
+instruments_path = "config/instruments.toml"
+include_classes = ["equity_us", "etf", "index", "commodity", "fx", "rates"]
+dex_preference = ["xyz", "para", "io", "mkts"]  # docs/api-notes.md §1
 min_day_volume_usd = 1_000_000
 min_open_interest_usd = 250_000
 
