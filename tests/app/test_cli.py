@@ -15,6 +15,7 @@ from hlsignals.core.errors import RetryableError
 from hlsignals.domain.models import DailyBar
 from hlsignals.infra.tape_feed import WsConnection
 from hlsignals.infra.transport import FixtureTransport, Payload, Transport
+from hlsignals.wallets.census.registry import SqliteRegistry
 from tests.conftest import FIXTURE_DIR, load_fixture
 from tests.factories import AS_OF
 
@@ -316,3 +317,84 @@ def test_backtest_bad_dates(
     )
     assert code == 2
     assert match in err
+
+
+# --- automation options (systemd timers) ----------------------------------------------------
+
+
+def test_run_save_dir_writes_dated_reports_and_latest(
+    config: Path, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    out_dir = tmp_path / "reports"
+    code, _, err = cli(["--config", str(config), "run", "--save-dir", str(out_dir)], capsys)
+    assert code == 0
+    stamp = FIXTURE_NOW.date().isoformat()
+    for ext in ("txt", "md", "json"):
+        assert (out_dir / f"signals-{stamp}.{ext}").read_text() == (
+            out_dir / f"latest.{ext}"
+        ).read_text()
+    assert json.loads((out_dir / "latest.json").read_text())["schema_version"] == 1
+    assert "saved signals-" in err
+
+
+def test_backtest_last_sessions_ends_before_the_outcome_horizon(
+    config: Path, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    out_dir = tmp_path / "bt"
+    code, out, _ = cli(
+        [
+            "--config",
+            str(config),
+            "backtest",
+            "--last-sessions",
+            "10",
+            "--format",
+            "json",
+            "--save-dir",
+            str(out_dir),
+        ],
+        capsys,
+    )
+    assert code == 0
+    period = json.loads(out)["period"]
+    end = date.fromisoformat(period["end"])
+    assert (FIXTURE_NOW.date() - end).days >= 7  # 5 sessions of outcome after the last entry
+    assert (out_dir / f"backtest-{FIXTURE_NOW.date().isoformat()}.json").exists()
+    assert (out_dir / "latest.txt").exists()
+
+
+@pytest.mark.parametrize(
+    ("args", "match"),
+    [
+        (["--last-sessions", "5", "--start", "2026-09-01"], "either --last-sessions"),
+        (["--last-sessions", "0"], "must be >= 1"),
+        ([], "needs --start and --end"),
+    ],
+)
+def test_backtest_window_argument_errors(
+    config: Path, args: list[str], match: str, capsys: pytest.CaptureFixture[str]
+) -> None:
+    code, _, err = cli(["--config", str(config), "backtest", *args], capsys)
+    assert code == 2
+    assert match in err
+
+
+def test_discover_vets_census_wallets_into_the_shortlist(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    config = tmp_path / "c.toml"
+    config.write_text(
+        f'[census]\ndb_path = "{tmp_path / "census.sqlite"}"\n\n'
+        f'[discovery]\nmin_observations = 3\nstate_path = "{tmp_path / "d.sqlite"}"\n'
+        f'shortlist_path = "{tmp_path / "shortlist.toml"}"\n'
+    )
+    registry = SqliteRegistry(tmp_path / "census.sqlite")
+    for i in range(5):
+        registry.observe([FILLS["user"]], i)
+    registry.close()
+    code, out, _ = cli(["--config", str(config), "discover", "--max-wallets", "10"], capsys)
+    assert code == 0
+    # the fixtures hold no 90-day history for this wallet: an API error, retried next run
+    assert "vetted 1" in out
+    assert "API errors 1" in out
+    assert (tmp_path / "shortlist.toml").exists()

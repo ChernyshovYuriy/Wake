@@ -70,6 +70,7 @@ export APIFY_API_TOKEN=...    # enables the "apify" wallet source (client not ye
 | `hlsignals run` | Builds the ranked signal report (`--format table\|markdown\|json`, `--output FILE`). |
 | `hlsignals vet --wallet 0x… --wallets-file FILE` | Scores wallets and explains every filter decision. |
 | `hlsignals backtest --start 2026-07-01 --end 2026-09-17 [--walk-forward]` | Replays past sessions against real stocks (`--format text\|json`). |
+| `hlsignals discover` | Vets census wallets into the shortlist the daily run follows (`[discovery]`). |
 | `hlsignals capture-fixtures --out DIR` | Records a live run so `run --fixtures DIR` can replay it offline. |
 
 Global options: `--config FILE` (TOML; defaults are built in), `-v` (progress on stderr).
@@ -92,6 +93,31 @@ source failed, `4` API error.
 
 ---
 
+## Running unattended on a Raspberry Pi
+
+Four systemd units in `system/` (same layout as the StockScanner project) automate the
+whole loop, starting with **no wallets at all**:
+
+| unit | when (New York time) | what |
+|---|---|---|
+| `hlsignals-census.service` | always on | records every wallet trading US-stock perps into `data/census.sqlite` |
+| `hlsignals-discover.timer` | Sat 02:00 | vets census wallets (new first, rejected ones again after 28 days, accepted ones every week) into `data/discovered_wallets.toml` |
+| `hlsignals-run.timer` | Mon–Fri 08:45 | the report, on `config/wallets.toml` + the shortlist → `data/reports/signals-YYYY-MM-DD.{txt,md,json}` and `latest.*` |
+| `hlsignals-backtest.timer` | Sun 02:00 | walk-forward backtest of the latest 60 sessions → `data/reports/backtest-*` |
+
+```bash
+bash system/setup-pi.sh                     # needs Python >= 3.12 (Pi OS Trixie; Bookworm: see the script)
+sudo bash system/install-services.sh        # fills in user + directory, daemon-reload
+# then the enable / logs commands in system/info
+```
+
+Configuration for the Pi is `config/pi.toml` (`[discovery]` sets how many wallets are
+vetted per week and when rejected ones are revisited). Expect the first useful reports
+only after the census has run for some days and discovery has accepted enough trusted
+wallets. Until then every stock is `insufficient`, which is the system being honest.
+
+---
+
 ## Configuration
 
 `config/example.toml` lists **every** key with its default and a comment. Any key can be
@@ -107,6 +133,7 @@ starting points to be tuned with the backtest, not claims of optimality.
 | `[history]` | lookback of wallet history, candle interval, candle window for signals |
 | `[signals]` | component weights, flow/overnight floors and full scales, corroboration, epsilon, flag thresholds |
 | `[calendar]`, `[census]`, `[report]`, `[backtest]` | market calendar file, census database, default report format, backtest settings |
+| `[discovery]` | census → shortlist: minimum census trades, wallets vetted per run, re-vet interval, output files |
 
 The market calendar (`config/us_market_calendar.toml`) covers 2025–2028 from NYSE sources.
 Dates outside it fail loudly; unscheduled closures must be added by hand.

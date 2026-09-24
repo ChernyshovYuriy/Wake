@@ -1,0 +1,14 @@
+[Unit]
+Description=hl-whale-signals discover: vet census wallets into the shortlist the daily run follows
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=@USER@
+WorkingDirectory=@APP_DIR@
+ExecStart=@APP_DIR@/.venv/bin/hlsignals -v --config @APP_DIR@/config/pi.toml discover
+Nice=10
+MemoryMax=2G
+StandardOutput=journal
+StandardError=journal

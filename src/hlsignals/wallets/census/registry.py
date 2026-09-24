@@ -79,9 +79,13 @@ ON CONFLICT(address) DO UPDATE SET
 _COLUMNS = "address, first_seen_ms, last_seen_ms, n_fills"
 
 
+_BUSY_TIMEOUT_S = 30.0  # the census writes while discovery / runs read
+
+
 class SqliteRegistry:
     def __init__(self, path: str | Path) -> None:
-        self._db = sqlite3.connect(path)
+        self._db = sqlite3.connect(path, timeout=_BUSY_TIMEOUT_S)
+        self._db.execute("PRAGMA journal_mode=WAL")  # readers don't block the writer
         self._db.execute(_SCHEMA)
         self._db.commit()
 

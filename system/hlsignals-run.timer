@@ -1,0 +1,10 @@
+[Unit]
+Description=Run the hl-whale-signals report Mon-Fri 08:45 New York time, before the 09:30 open (the backtest assumes pre-open signals)
+
+[Timer]
+OnCalendar=Mon..Fri 08:45 America/New_York
+Persistent=false
+Unit=hlsignals-run.service
+
+[Install]
+WantedBy=timers.target

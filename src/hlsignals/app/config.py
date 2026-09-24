@@ -163,6 +163,17 @@ class BacktestSettings:
 
 
 @dataclass(frozen=True, slots=True)
+class DiscoverySettings:
+    """Weekly vetting of census wallets into a shortlist the daily run follows."""
+
+    min_observations: int = 20  # census trades seen before a wallet is worth vetting
+    max_wallets_per_run: int = 300  # bounds a run's API time (vetting is the slow part)
+    revet_days: float = 28.0  # rejected wallets get another look after this long
+    state_path: str = "data/discovery.sqlite"
+    shortlist_path: str = "data/discovered_wallets.toml"
+
+
+@dataclass(frozen=True, slots=True)
 class ReportSettings:
     format: str = "table"
 
@@ -180,6 +191,7 @@ class Settings:
     census: CensusSettings = field(default_factory=CensusSettings)
     report: ReportSettings = field(default_factory=ReportSettings)
     backtest: BacktestSettings = field(default_factory=BacktestSettings)
+    discovery: DiscoverySettings = field(default_factory=DiscoverySettings)
 
 
 # TOML table path -> Settings field. [wallets] holds sources/precedence and two sub-tables.
@@ -194,6 +206,7 @@ _SECTIONS: Final = {
     ("census",): "census",
     ("report",): "report",
     ("backtest",): "backtest",
+    ("discovery",): "discovery",
 }
 _SECRET_MARKERS: Final = ("api_key", "apikey", "token", "secret", "password")
 

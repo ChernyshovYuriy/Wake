@@ -1,0 +1,19 @@
+[Unit]
+Description=hl-whale-signals census: record every wallet trading US-stock perps (websocket, always on)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=@USER@
+WorkingDirectory=@APP_DIR@
+ExecStart=@APP_DIR@/.venv/bin/hlsignals --config @APP_DIR@/config/pi.toml census
+Restart=always
+RestartSec=30
+Nice=10
+MemoryMax=512M
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

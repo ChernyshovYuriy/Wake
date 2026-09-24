@@ -1,4 +1,4 @@
-"""Command line: run | vet | census | backtest | capture-fixtures.
+"""Command line: run | vet | census | discover | backtest | capture-fixtures.
 
 Exit codes (IMPLEMENTATION_PLAN.md §6.13): 0 ok, 2 config error, 3 all wallet sources
 failed, 4 API error.
@@ -23,6 +23,7 @@ from pathlib import Path
 from hlsignals.app.backtest import load_history, run_backtest
 from hlsignals.app.builder import PipelineBuilder, open_registry
 from hlsignals.app.config import Settings, load_settings
+from hlsignals.app.discover import DiscoveryStore, discover
 from hlsignals.app.pipeline import SignalPipeline
 from hlsignals.app.vet import render_vet
 from hlsignals.app.wiring import build_transport, load_catalog, load_equities
@@ -45,6 +46,7 @@ from hlsignals.infra.tape_feed import TapeFeed, WsConnection, websocket_connect
 from hlsignals.infra.transport import FixtureTransport, Transport
 from hlsignals.infra.yahoo import YahooPriceHistory
 from hlsignals.reporting.renderers import REPORT_FORMATS, renderer_for
+from hlsignals.session.calendar import SessionCalendar
 from hlsignals.wallets.census.recorder import CensusRecorder
 from hlsignals.wallets.census.tape import TapeSubject
 from hlsignals.wallets.sources.base import SourceResult
@@ -97,18 +99,32 @@ def _parser() -> argparse.ArgumentParser:
     run.add_argument("--format", choices=sorted(REPORT_FORMATS), help="report format")
     run.add_argument("--output", type=Path, help="write the report here instead of stdout")
     run.add_argument("--fixtures", type=Path, help="replay a recorded scenario directory")
+    run.add_argument(
+        "--save-dir", type=Path, help="also save dated .txt/.md/.json reports (and latest.*) here"
+    )
 
     vet = commands.add_parser("vet", help="score wallets and explain filter decisions")
     vet.add_argument("--wallet", action="append", default=[], help="wallet address")
     vet.add_argument("--wallets-file", type=Path, help="curated wallets TOML")
     vet.add_argument("--lookback-days", type=float, help="history window to fetch")
 
+    discover_cmd = commands.add_parser(
+        "discover", help="vet census wallets into the shortlist the daily run follows"
+    )
+    discover_cmd.add_argument("--max-wallets", type=int, help="override max wallets to vet")
+
     census = commands.add_parser("census", help="record wallets trading US stocks (websocket)")
     census.add_argument("--minutes", type=float, help="stop after this long (default: Ctrl-C)")
 
     backtest = commands.add_parser("backtest", help="replay past sessions against real stocks")
-    backtest.add_argument("--start", required=True, help="first session (YYYY-MM-DD)")
-    backtest.add_argument("--end", required=True, help="last session (YYYY-MM-DD)")
+    backtest.add_argument("--start", help="first session (YYYY-MM-DD)")
+    backtest.add_argument("--end", help="last session (YYYY-MM-DD)")
+    backtest.add_argument(
+        "--last-sessions",
+        type=int,
+        help="instead of dates: the latest N sessions with known outcomes",
+    )
+    backtest.add_argument("--save-dir", type=Path, help="also save dated .txt/.json reports here")
     backtest.add_argument("--walk-forward", action="store_true", help="tune on train windows")
     backtest.add_argument("--format", choices=("text", "json"), default="text")
     backtest.add_argument("--output", type=Path, help="write the report here")
@@ -146,6 +162,7 @@ def main(argv: Sequence[str] | None = None, *, runtime: Runtime | None = None) -
             "vet": _vet,
             "census": _census,
             "backtest": _backtest,
+            "discover": _discover,
             "capture-fixtures": _capture,
         }[args.command]
         return command(args, settings, rt)
@@ -186,7 +203,23 @@ def _run(args: argparse.Namespace, settings: Settings, rt: Runtime) -> int:
         print(text, end="")
     else:
         args.output.write_text(text)
+    if args.save_dir is not None:
+        stamp = report.as_of.date().isoformat()
+        rendered = {ext: renderer_for(fmt).render(report) for ext, fmt in _SAVED_FORMATS.items()}
+        _save(args.save_dir, f"signals-{stamp}", rendered)
     return EXIT_OK
+
+
+_SAVED_FORMATS = {"txt": "table", "md": "markdown", "json": "json"}
+
+
+def _save(directory: Path, stem: str, rendered: Mapping[str, str]) -> None:
+    """Write ``stem.<ext>`` for each rendering, plus ``latest.<ext>`` copies."""
+    directory.mkdir(parents=True, exist_ok=True)
+    for ext, text in rendered.items():
+        (directory / f"{stem}.{ext}").write_text(text)
+        (directory / f"latest.{ext}").write_text(text)
+    print(f"saved {stem}.{{{','.join(rendered)}}} in {directory}", file=sys.stderr)
 
 
 def _scenario(directory: Path, base: Settings) -> tuple[datetime, Settings, Transport]:
@@ -228,10 +261,8 @@ def _address(raw: str) -> str:
 
 
 def _backtest(args: argparse.Namespace, settings: Settings, rt: Runtime) -> int:
-    start, end = _day(args.start), _day(args.end)
-    if end < start:
-        raise ConfigError(f"--end {end} is before --start {start}")
     parts = _pipeline(settings, rt.clock, rt.transport(settings, rt.clock), rt.env).parts
+    start, end = _backtest_window(args, settings, parts.calendar, rt.clock.now())
     loaded = load_history(
         settings=settings,
         gateway=parts.gateway,
@@ -256,7 +287,36 @@ def _backtest(args: argparse.Namespace, settings: Settings, rt: Runtime) -> int:
         print(text, end="")
     else:
         args.output.write_text(text)
+    if args.save_dir is not None:
+        stamp = rt.clock.now().date().isoformat()
+        rendered = {"txt": render_backtest(report), "json": backtest_to_json(report)}
+        _save(args.save_dir, f"backtest-{stamp}", rendered)
     return EXIT_OK
+
+
+def _backtest_window(
+    args: argparse.Namespace, settings: Settings, calendar: SessionCalendar, now: datetime
+) -> tuple[date, date]:
+    if args.last_sessions is not None:
+        if args.start or args.end:
+            raise ConfigError("use either --last-sessions or --start/--end, not both")
+        if args.last_sessions < 1:
+            raise ConfigError(f"--last-sessions must be >= 1: {args.last_sessions}")
+        horizon = settings.backtest.horizon_sessions
+        lookback = timedelta(days=(args.last_sessions + horizon) * 2 + 14)
+        days = [s.day for s in calendar.sessions(now.date() - lookback, now.date())]
+        # the last session whose full holding period has already closed
+        ended = [d for d in days if d < now.date()][: -horizon or None]
+        window = ended[-args.last_sessions :]
+        if not window:
+            raise ConfigError("no completed sessions in the requested window")
+        return window[0], window[-1]
+    if not (args.start and args.end):
+        raise ConfigError("backtest needs --start and --end, or --last-sessions")
+    start, end = _day(args.start), _day(args.end)
+    if end < start:
+        raise ConfigError(f"--end {end} is before --start {start}")
+    return start, end
 
 
 def _day(raw: str) -> date:
@@ -264,6 +324,37 @@ def _day(raw: str) -> date:
         return date.fromisoformat(raw)
     except ValueError as exc:
         raise ConfigError(f"not a date (YYYY-MM-DD): {raw!r}") from exc
+
+
+def _discover(args: argparse.Namespace, settings: Settings, rt: Runtime) -> int:
+    discovery = settings.discovery
+    if args.max_wallets is not None:
+        discovery = dataclasses.replace(discovery, max_wallets_per_run=args.max_wallets)
+    pipeline = _pipeline(settings, rt.clock, rt.transport(settings, rt.clock), rt.env)
+    registry = open_registry(settings, Path())
+    state = Path(discovery.state_path)
+    state.parent.mkdir(parents=True, exist_ok=True)
+    store = DiscoveryStore(state)
+    try:
+        summary = discover(
+            pipeline=pipeline,
+            registry=registry,
+            store=store,
+            settings=discovery,
+            as_of=rt.clock.now(),
+            shortlist_path=Path(discovery.shortlist_path),
+        )
+    finally:
+        store.close()
+        registry.close()
+    rejected = ", ".join(f"{k} {v}" for k, v in sorted(summary.rejected.items())) or "none"
+    print(
+        f"discover: {summary.candidates} census wallets with >= {discovery.min_observations} "
+        f"trades; vetted {summary.vetted} (skipped {summary.skipped_recent} vetted recently); "
+        f"accepted {summary.accepted}; rejected: {rejected}; API errors {summary.errors}; "
+        f"shortlist now {summary.shortlisted} wallets in {discovery.shortlist_path}"
+    )
+    return EXIT_OK
 
 
 def _census(args: argparse.Namespace, settings: Settings, rt: Runtime) -> int:

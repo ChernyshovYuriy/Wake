@@ -1,0 +1,25 @@
+# Configuration for the unattended Raspberry Pi deployment (system/*.service).
+# Everything not listed here keeps the defaults documented in config/example.toml.
+
+[wallets]
+# The daily run follows your own list plus the shortlist that the weekly
+# `hlsignals discover` job builds from the census. The census itself is not a
+# daily source: it holds thousands of wallets, far too many to vet every morning.
+precedence = ["curated", "discovered"]
+
+[[wallets.sources]]
+type = "curated"
+path = "config/wallets.toml"
+
+[[wallets.sources]]
+type = "curated"
+name = "discovered"
+path = "data/discovered_wallets.toml"   # written by `hlsignals discover`
+
+[discovery]
+min_observations = 20          # census trades seen before a wallet is worth vetting
+max_wallets_per_run = 300      # bounds the weekly job's API time
+revet_days = 28                # rejected wallets get another look after four weeks
+
+[census]
+db_path = "data/census.sqlite"

@@ -1,0 +1,10 @@
+[Unit]
+Description=Run the hl-whale-signals backtest weekly, Sunday 02:00 New York time (after Saturday's discovery)
+
+[Timer]
+OnCalendar=Sun 02:00 America/New_York
+Persistent=true
+Unit=hlsignals-backtest.service
+
+[Install]
+WantedBy=timers.target

@@ -1,0 +1,10 @@
+[Unit]
+Description=Run hl-whale-signals discover weekly, Saturday 02:00 New York time (no market, API quiet; can take hours)
+
+[Timer]
+OnCalendar=Sat 02:00 America/New_York
+Persistent=true
+Unit=hlsignals-discover.service
+
+[Install]
+WantedBy=timers.target

@@ -56,7 +56,10 @@ def _required[T](spec: Mapping[str, Any], key: str, kind: type[T]) -> T:
 
 
 def _curated(spec: Mapping[str, Any], deps: SourceDeps) -> WalletSourcePort:
-    return CuratedSource(deps.base_dir / _required(spec, "path", str), deps.clock)
+    name = spec.get("name", "curated")
+    if not isinstance(name, str) or not name:
+        raise ConfigError(f"wallet source 'name' must be a non-empty string, got {name!r}")
+    return CuratedSource(deps.base_dir / _required(spec, "path", str), deps.clock, name=name)
 
 
 def _census(spec: Mapping[str, Any], deps: SourceDeps) -> WalletSourcePort:

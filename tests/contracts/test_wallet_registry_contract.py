@@ -69,3 +69,14 @@ def test_sqlite_round_trip_persists(tmp_path: Path) -> None:
     reopened = SqliteRegistry(path)
     assert reopened.get(WALLET) == WalletObservation(WALLET, 5, 5, 1)
     reopened.close()
+
+
+def test_sqlite_allows_a_reader_while_another_connection_writes(tmp_path: Path) -> None:
+    path = tmp_path / "census.db"
+    writer, reader = SqliteRegistry(path), SqliteRegistry(path)
+    writer.observe([WALLET], 1)
+    assert reader.get(WALLET) == WalletObservation(WALLET, 1, 1, 1)
+    writer.observe([WALLET], 2)
+    assert reader.observations(min_fills=2)[0].n_fills == 2
+    writer.close()
+    reader.close()

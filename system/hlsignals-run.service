@@ -1,0 +1,14 @@
+[Unit]
+Description=hl-whale-signals daily signal report (saved to data/reports/)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=@USER@
+WorkingDirectory=@APP_DIR@
+ExecStart=@APP_DIR@/.venv/bin/hlsignals -v --config @APP_DIR@/config/pi.toml run --save-dir @APP_DIR@/data/reports
+Nice=10
+MemoryMax=2G
+StandardOutput=journal
+StandardError=journal

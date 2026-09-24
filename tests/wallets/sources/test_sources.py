@@ -292,3 +292,13 @@ def test_composite_of_factory_sources_end_to_end(tmp_path: Path) -> None:
         (OTHER_WALLET, "census"),
     }
     assert any("disabled" in diag.message for diag in result.diagnostics)
+
+
+def test_factory_curated_source_can_be_named(tmp_path: Path) -> None:
+    write_curated(tmp_path, f'[[wallets]]\naddress = "{WALLET}"\n')
+    spec = {"type": "curated", "name": "discovered", "path": "wallets.toml"}
+    source = default_source_factory().create(spec, deps(tmp_path))
+    assert source.name == "discovered"
+    assert source.fetch().records[0].source == "discovered"
+    with pytest.raises(ConfigError, match="name"):
+        default_source_factory().create({**spec, "name": ""}, deps(tmp_path))
