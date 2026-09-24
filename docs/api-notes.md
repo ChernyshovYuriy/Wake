@@ -51,9 +51,12 @@ the 7 `known_tickers`; crypto is never signalled.
 - **User rule (Phase 0 review): only securities listed in the USA, or Canada if available.**
   US-listed ADSs of foreign companies (BABA, TSM, ASML, NOK, SKHY) count as US listings.
   No live market references a Canadian listing (BlackBerry `xyz:BB` references NYSE: BB).
-- `[universe].include_classes` (config) picks which classes produce signals. Default:
-  `equity_us, etf, index_us, commodity, fx, rates`. Excluded: `equity_foreign`,
-  `index_foreign`, `pre_ipo`, `crypto`, `unverified`.
+- `[universe].include_classes` (config) picks which classes produce signals.
+  **User rule: only US / Canadian-listed stocks → default `["equity_us"]`.** ETFs,
+  indices, commodities, FX and rates stay classified in the catalog (so their fills are
+  recognised and dropped deliberately rather than reported as unclassified) but produce
+  no signals. If a Canadian-listed stock market appears, add an `equity_ca` class and
+  include it.
 - `known_tickers` is replaced by `instruments_path` + `include_classes`.
 - `Symbol.is_equity` becomes **`Symbol.is_hip3`** (has a dex prefix). Core crypto, spot
   and outcome coins are recognised only so they can be dropped. Asset-class lookup gets a
