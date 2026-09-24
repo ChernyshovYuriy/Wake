@@ -1,0 +1,13 @@
+{
+ "request": {
+  "req": {
+   "coin": "NVDA",
+   "endTime": 1790268548139,
+   "interval": "1h",
+   "startTime": 1790009348139
+  },
+  "type": "candleSnapshot"
+ },
+ "response": null,
+ "status": 500
+}

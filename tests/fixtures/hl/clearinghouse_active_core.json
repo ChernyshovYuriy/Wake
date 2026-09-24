@@ -1,0 +1,24 @@
+{
+ "request": {
+  "type": "clearinghouseState",
+  "user": "0x89b194747e99a7712f95cd99b8aee17784b92c41"
+ },
+ "response": {
+  "assetPositions": [],
+  "crossMaintenanceMarginUsed": "0.0",
+  "crossMarginSummary": {
+   "accountValue": "0.0",
+   "totalMarginUsed": "0.0",
+   "totalNtlPos": "0.0",
+   "totalRawUsd": "0.0"
+  },
+  "marginSummary": {
+   "accountValue": "0.0",
+   "totalMarginUsed": "0.0",
+   "totalNtlPos": "0.0",
+   "totalRawUsd": "0.0"
+  },
+  "time": 1790268592261,
+  "withdrawable": "0.0"
+ }
+}

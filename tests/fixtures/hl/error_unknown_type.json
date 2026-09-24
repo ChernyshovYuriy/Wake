@@ -1,0 +1,7 @@
+{
+ "request": {
+  "type": "doesNotExist"
+ },
+ "response": "Failed to deserialize the JSON body into the target type",
+ "status": 422
+}

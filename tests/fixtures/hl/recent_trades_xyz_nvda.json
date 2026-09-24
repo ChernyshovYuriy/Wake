@@ -1,0 +1,138 @@
+{
+ "request": {
+  "coin": "xyz:NVDA",
+  "type": "recentTrades"
+ },
+ "response": [
+  {
+   "coin": "xyz:NVDA",
+   "hash": "0x910298ea88fa89c0927c04451df5370203ec00d023fda89234cb443d47fe63ab",
+   "px": "224.33",
+   "side": "B",
+   "sz": "0.311",
+   "tid": 125945129260928,
+   "time": 1790268557120,
+   "users": [
+    "0x11f2a9d1f3df3e0a31ac0ff96ef13cc980d80d26",
+    "0x62cc11f4a925930bf4ef5475474d8849d467ceb0"
+   ]
+  },
+  {
+   "coin": "xyz:NVDA",
+   "hash": "0x910298ea88fa89c0927c04451df5370203ec00d023fda89234cb443d47fe63ab",
+   "px": "224.33",
+   "side": "B",
+   "sz": "1.5",
+   "tid": 799925160085424,
+   "time": 1790268557120,
+   "users": [
+    "0x11f2a9d1f3df3e0a31ac0ff96ef13cc980d80d26",
+    "0x51ed2368cd1d727d4bf111227f2e03ce2d02329e"
+   ]
+  },
+  {
+   "coin": "xyz:NVDA",
+   "hash": "0x1a5c03c509eb0bac1bd504451df5370203d300aaa4ee2a7ebe24af17c8eee596",
+   "px": "224.3",
+   "side": "B",
+   "sz": "0.06",
+   "tid": 863120114535915,
+   "time": 1790268557120,
+   "users": [
+    "0x684660a19b1929fd8b10aa87ce0a4ac1bc57b80d",
+    "0x27eafcb8ab91ab68e9de09bb85eb113148a3d765"
+   ]
+  },
+  {
+   "coin": "xyz:NVDA",
+   "hash": "0x1a5c03c509eb0bac1bd504451df5370203d300aaa4ee2a7ebe24af17c8eee596",
+   "px": "224.3",
+   "side": "B",
+   "sz": "0.06",
+   "tid": 777531434474860,
+   "time": 1790268557120,
+   "users": [
+    "0x684660a19b1929fd8b10aa87ce0a4ac1bc57b80d",
+    "0x66b046505a2fc593de8f9005e2f7dca801b20141"
+   ]
+  },
+  {
+   "coin": "xyz:NVDA",
+   "hash": "0x1a5c03c509eb0bac1bd504451df5370203d300aaa4ee2a7ebe24af17c8eee596",
+   "px": "224.3",
+   "side": "B",
+   "sz": "0.06",
+   "tid": 1023775188385251,
+   "time": 1790268557120,
+   "users": [
+    "0x684660a19b1929fd8b10aa87ce0a4ac1bc57b80d",
+    "0x6628fa3f68f0160f83ec716d826ec1aa97e72c41"
+   ]
+  },
+  {
+   "coin": "xyz:NVDA",
+   "hash": "0x1a5c03c509eb0bac1bd504451df5370203d300aaa4ee2a7ebe24af17c8eee596",
+   "px": "224.3",
+   "side": "B",
+   "sz": "0.06",
+   "tid": 380468584248621,
+   "time": 1790268557120,
+   "users": [
+    "0x684660a19b1929fd8b10aa87ce0a4ac1bc57b80d",
+    "0xbee5356e5ce0aff1e4e4c88816e1be79f20ac7fb"
+   ]
+  },
+  {
+   "coin": "xyz:NVDA",
+   "hash": "0xd1299bb8e3b2bce0d2a304451df4cd02060a009e7eb5dbb274f2470ba2b696cb",
+   "px": "224.3",
+   "side": "B",
+   "sz": "0.055",
+   "tid": 883470481322123,
+   "time": 1790268549601,
+   "users": [
+    "0x0035c5080021df2f4cbee9b19ea26d001755aa9b",
+    "0x684660a19b1929fd8b10aa87ce0a4ac1bc57b80d"
+   ]
+  },
+  {
+   "coin": "xyz:NVDA",
+   "hash": "0xeabceca8dbc55e8aec3604451df4b60204e6008e76c87d5c8e8597fb9ac93875",
+   "px": "224.3",
+   "side": "A",
+   "sz": "0.06",
+   "tid": 373152948827052,
+   "time": 1790268548024,
+   "users": [
+    "0x6628fa3f68f0160f83ec716d826ec1aa97e72c41",
+    "0x11f2a9d1f3df3e0a31ac0ff96ef13cc980d80d26"
+   ]
+  },
+  {
+   "coin": "xyz:NVDA",
+   "hash": "0xc2a0a50d989777f1c41a04451df4910202b400f3339a96c366695060579b51dc",
+   "px": "224.31",
+   "side": "A",
+   "sz": "0.06",
+   "tid": 937044528743538,
+   "time": 1790268545492,
+   "users": [
+    "0xbee5356e5ce0aff1e4e4c88816e1be79f20ac7fb",
+    "0x11f2a9d1f3df3e0a31ac0ff96ef13cc980d80d26"
+   ]
+  },
+  {
+   "coin": "xyz:NVDA",
+   "hash": "0xc2a0a50d989777f1c41a04451df4910202b400f3339a96c366695060579b51dc",
+   "px": "224.31",
+   "side": "A",
+   "sz": "0.06",
+   "tid": 281792517285134,
+   "time": 1790268545492,
+   "users": [
+    "0x66b046505a2fc593de8f9005e2f7dca801b20141",
+    "0x11f2a9d1f3df3e0a31ac0ff96ef13cc980d80d26"
+   ]
+  }
+ ]
+}

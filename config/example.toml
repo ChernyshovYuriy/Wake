@@ -1,0 +1,38 @@
+[universe]
+known_tickers = ["AAPL","GOOGL","MSFT","META","NVDA","AMZN","TSLA"]
+dex_preference = ["xyz", "para", "io"]  # docs/api-notes.md §1
+min_day_volume_usd = 1_000_000
+min_open_interest_usd = 250_000
+
+[[wallets.sources]]
+type = "curated"
+path = "config/wallets.toml"
+
+[[wallets.sources]]
+type = "census"
+min_observations = 20
+
+[wallets.filters]              # chain order = listed order
+order = ["min_sample", "maker_profile", "inactivity", "reversal_bait"]
+
+[wallets.scoring]
+weights = { hit_rate = 1.0, drawdown = 1.0, consistency = 1.0, horizon_fit = 1.0, prior = 0.5 }
+shrinkage_k = 10
+half_life_days = 21
+swing_horizon_days = 5
+
+[signals]
+weights = { tilt = 1.0, flow = 1.0, overnight = 0.5 }
+min_flow_oi_frac = 0.02
+min_overnight = 0.003
+min_wallets = 3
+min_trust = 0.4
+epsilon = 0.01
+flow_window_hours = 24
+
+[backtest]
+horizon_days = 5
+cost_bps = 5
+train_days = 60
+test_days = 20
+min_trades_for_verdict = 30
