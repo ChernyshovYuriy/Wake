@@ -1,0 +1,236 @@
+{
+  "as_of": "2026-09-24T12:45:00+00:00",
+  "diagnostics": {
+    "dex_failures": {
+      "io": "RetryableError: HTTP 503"
+    },
+    "markets_rejected": {
+      "min_day_volume": 35
+    },
+    "source_messages": [
+      "nansen: disabled: NANSEN_API_KEY is not set",
+      "apify: failed: HTTP 503"
+    ],
+    "sources_failed": [
+      "apify"
+    ],
+    "sources_used": [
+      "curated",
+      "census"
+    ],
+    "unclassified_symbols": [
+      "xyz:NEWCO"
+    ],
+    "universe_after_filters": 45,
+    "universe_discovered": 80,
+    "wallets_accepted": 9,
+    "wallets_considered": 40,
+    "wallets_rejected": {
+      "inactivity": 2,
+      "maker_profile": 21,
+      "min_sample": 8
+    },
+    "wallets_truncated": 3
+  },
+  "disclaimer": "Research signal derived from Hyperliquid HIP-3 perp activity. Not financial advice.",
+  "schema_version": 1,
+  "signals": [
+    {
+      "components": {
+        "flow": {
+          "evidence": {
+            "flow_usd": 120000.0,
+            "n_fills": 7,
+            "oi_usd": 2000000.0
+          },
+          "value": 0.6
+        },
+        "overnight": {
+          "evidence": {
+            "last_px": 100.9,
+            "pct": 0.009,
+            "ref_px": 100.0,
+            "stale": false
+          },
+          "value": 0.3
+        },
+        "tilt": {
+          "evidence": {
+            "gross_usd": 1000000.0,
+            "n_long": 3,
+            "n_short": 1,
+            "net_usd": 800000.0
+          },
+          "value": 0.8
+        }
+      },
+      "direction": "long",
+      "flags": [],
+      "market": {
+        "day_ntl_vlm": 42000000.0,
+        "funding": 0.0,
+        "is_delisted": false,
+        "mark_px": 200.0,
+        "mid_px": 100.0,
+        "oi_usd": 2000000.0,
+        "open_interest": 10000.0,
+        "oracle_px": 100.0,
+        "prev_day_px": 99.0
+      },
+      "n_wallets": 4,
+      "reason": "long: sample",
+      "score": 0.62,
+      "status": "scored",
+      "symbol": "xyz:NVDA"
+    },
+    {
+      "components": {
+        "flow": {
+          "evidence": {
+            "flow_usd": -80000.0,
+            "n_fills": 7,
+            "oi_usd": 2000000.0
+          },
+          "value": -0.4
+        },
+        "overnight": {
+          "evidence": {
+            "last_px": 99.4,
+            "pct": -0.006,
+            "ref_px": 100.0,
+            "stale": false
+          },
+          "value": -0.2
+        },
+        "tilt": {
+          "evidence": {
+            "gross_usd": 1000000.0,
+            "n_long": 3,
+            "n_short": 1,
+            "net_usd": -500000.0
+          },
+          "value": -0.5
+        }
+      },
+      "direction": "short",
+      "flags": [
+        "thin_volume"
+      ],
+      "market": {
+        "day_ntl_vlm": 42000000.0,
+        "funding": 0.0,
+        "is_delisted": false,
+        "mark_px": 200.0,
+        "mid_px": 100.0,
+        "oi_usd": 2000000.0,
+        "open_interest": 10000.0,
+        "oracle_px": 100.0,
+        "prev_day_px": 99.0
+      },
+      "n_wallets": 4,
+      "reason": "short: sample",
+      "score": -0.41,
+      "status": "scored",
+      "symbol": "xyz:TSLA"
+    },
+    {
+      "components": {
+        "flow": {
+          "evidence": {
+            "flow_usd": 0.0,
+            "n_fills": 7,
+            "oi_usd": 2000000.0
+          },
+          "value": 0.0
+        },
+        "overnight": {
+          "evidence": {
+            "last_px": 99.7,
+            "pct": -0.003,
+            "ref_px": 100.0,
+            "stale": false
+          },
+          "value": -0.1
+        },
+        "tilt": {
+          "evidence": {
+            "gross_usd": 1000000.0,
+            "n_long": 3,
+            "n_short": 1,
+            "net_usd": 100000.0
+          },
+          "value": 0.1
+        }
+      },
+      "direction": "flat",
+      "flags": [
+        "cash_session_open",
+        "weak_sample"
+      ],
+      "market": {
+        "day_ntl_vlm": 42000000.0,
+        "funding": 0.0,
+        "is_delisted": false,
+        "mark_px": 200.0,
+        "mid_px": 100.0,
+        "oi_usd": 2000000.0,
+        "open_interest": 10000.0,
+        "oracle_px": 100.0,
+        "prev_day_px": 99.0
+      },
+      "n_wallets": 4,
+      "reason": "flat: sample",
+      "score": 0.03,
+      "status": "scored",
+      "symbol": "xyz:AAPL"
+    },
+    {
+      "components": {
+        "flow": {
+          "evidence": {
+            "flow_usd": 0.0,
+            "n_fills": 7,
+            "oi_usd": 2000000.0
+          },
+          "value": 0.0
+        },
+        "overnight": {
+          "evidence": {
+            "last_px": 100.0,
+            "pct": 0.0,
+            "ref_px": 100.0,
+            "stale": false
+          },
+          "value": 0.0
+        },
+        "tilt": {
+          "evidence": {
+            "gross_usd": 1000000.0,
+            "n_long": 3,
+            "n_short": 1,
+            "net_usd": 200000.0
+          },
+          "value": 0.2
+        }
+      },
+      "direction": null,
+      "flags": [],
+      "market": {
+        "day_ntl_vlm": 42000000.0,
+        "funding": 0.0,
+        "is_delisted": false,
+        "mark_px": 200.0,
+        "mid_px": 100.0,
+        "oi_usd": 2000000.0,
+        "open_interest": 10000.0,
+        "oracle_px": 100.0,
+        "prev_day_px": 99.0
+      },
+      "n_wallets": 2,
+      "reason": "2 trusted wallets < 3 (trust >= 0.4)",
+      "score": null,
+      "status": "insufficient",
+      "symbol": "xyz:META"
+    }
+  ]
+}

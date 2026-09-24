@@ -320,3 +320,16 @@ They will raise `AdapterError` (fail loud, plan rule 10) and get added when seen
 - Components are computed and reported even for INSUFFICIENT tickers.
 - Flags: thin volume (< $5M/24h), weak sample (mean confidence of corroborating wallets
   < 0.5), stale overnight reference (latest candle older than 2h), cash session open.
+
+## 17. Phase 7 notes
+
+- `SignalReport` = as_of + ranked `TickerSignal`s + `Diagnostics` (sources used/failed and
+  their messages, wallet and market rejection counts by filter, truncated histories,
+  universe sizes, unclassified symbols, dex failures).
+- Renderers: `table` (terminal), `markdown`, `json`. JSON schema version 1 (sorted keys,
+  includes a disclaimer). `report_from_json` reads it back losslessly; a round-trip test
+  keeps the schema honest. `market.oi_usd` is written for readers and ignored on read
+  (derived).
+- Snapshot files: `tests/reporting/snapshots/`; regenerate after an intended change with
+  `UPDATE_SNAPSHOTS=1 pytest tests/reporting`.
+- Number formatting has one home (`reporting/evidence.py`), also used by `vet`.

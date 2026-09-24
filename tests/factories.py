@@ -12,6 +12,7 @@ from typing import Any
 from hlsignals.domain.direction import sign_of
 from hlsignals.domain.models import (
     Candle,
+    Diagnostics,
     FeatureValue,
     Fill,
     MarketCtx,
@@ -293,3 +294,24 @@ def make_ticker_inputs(
 
 def wallet_address(i: int) -> str:
     return f"0x{i:040x}"
+
+
+def make_diagnostics(**overrides: Any) -> Diagnostics:
+    defaults: dict[str, Any] = {
+        "sources_used": ("curated", "census"),
+        "sources_failed": ("apify",),
+        "source_messages": (
+            "nansen: disabled: NANSEN_API_KEY is not set",
+            "apify: failed: HTTP 503",
+        ),
+        "wallets_considered": 40,
+        "wallets_accepted": 9,
+        "wallets_rejected": {"maker_profile": 21, "min_sample": 8, "inactivity": 2},
+        "wallets_truncated": 3,
+        "universe_discovered": 80,
+        "universe_after_filters": 45,
+        "markets_rejected": {"min_day_volume": 35},
+        "unclassified_symbols": ("xyz:NEWCO",),
+        "dex_failures": {"io": "RetryableError: HTTP 503"},
+    }
+    return Diagnostics(**{**defaults, **overrides})

@@ -18,6 +18,7 @@ from hlsignals.core.clock import Clock, from_ms, to_ms
 from hlsignals.core.errors import AdapterError, TransportError
 from hlsignals.domain.models import Candle, Fill, ScoredWallet, WalletRecord
 from hlsignals.domain.symbols import Symbol
+from hlsignals.reporting.evidence import fmt_evidence
 from hlsignals.wallets.scoring.scorer import WalletScorer
 from hlsignals.wallets.scoring.slice import EquitySlice
 
@@ -147,10 +148,5 @@ def _render_one(result: VetResult) -> str:
             + ("   [history truncated by API cap]" if result.truncated else "")
         )
         for name, feature in scored.features.items():
-            evidence = ", ".join(f"{k}={_fmt(v)}" for k, v in feature.evidence.items())
-            lines.append(f"    {name:<12} {feature.value:.3f}   {evidence}")
+            lines.append(f"    {name:<12} {feature.value:.3f}   {fmt_evidence(feature.evidence)}")
     return "\n".join(lines) + "\n\n"
-
-
-def _fmt(value: object) -> str:
-    return f"{value:.4g}" if isinstance(value, float) else str(value)

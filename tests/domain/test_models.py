@@ -15,6 +15,7 @@ from hlsignals.domain.models import (
     PositionSide,
     SignalComponent,
     SignalDirection,
+    SignalReport,
     SignalStatus,
     TickerSignal,
 )
@@ -23,6 +24,7 @@ from tests.factories import (
     NVDA,
     D,
     make_candle_series,
+    make_diagnostics,
     make_fill,
     make_market_ctx,
     make_position,
@@ -225,3 +227,18 @@ def test_ticker_signal_consistency() -> None:
         TickerSignal(
             status=SignalStatus.SCORED, direction=SignalDirection.LONG, score=1.5, **common
         )
+
+
+def test_diagnostics_consistency_and_frozen_maps() -> None:
+    diagnostics = make_diagnostics()
+    with pytest.raises(TypeError):
+        diagnostics.wallets_rejected["x"] = 1  # type: ignore[index]
+    with pytest.raises(ValueError, match="accepted wallets"):
+        make_diagnostics(wallets_accepted=41)
+    with pytest.raises(ValueError, match="filtered universe"):
+        make_diagnostics(universe_after_filters=81)
+
+
+def test_signal_report_needs_aware_as_of() -> None:
+    with pytest.raises(ValueError, match="naive"):
+        SignalReport(NAIVE, (), make_diagnostics())

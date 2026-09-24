@@ -292,3 +292,43 @@ class TickerSignal:
         if self.score is not None:
             _require(-1.0 <= self.score <= 1.0, f"score must be in [-1, 1]: {self.score}")
         object.__setattr__(self, "components", MappingProxyType(dict(self.components)))
+
+
+@dataclass(frozen=True, slots=True)
+class Diagnostics:
+    """Everything a reader needs to judge a report: what went in, what was dropped, why."""
+
+    sources_used: tuple[str, ...]
+    sources_failed: tuple[str, ...]
+    source_messages: tuple[str, ...]  # e.g. "nansen: disabled: NANSEN_API_KEY is not set"
+    wallets_considered: int
+    wallets_accepted: int
+    wallets_rejected: Mapping[str, int]  # filter name -> count
+    wallets_truncated: int  # wallets whose history hit the API cap
+    universe_discovered: int
+    universe_after_filters: int
+    markets_rejected: Mapping[str, int]  # filter name -> count
+    unclassified_symbols: tuple[str, ...]
+    dex_failures: Mapping[str, str]
+
+    def __post_init__(self) -> None:
+        _require(
+            0 <= self.wallets_accepted <= self.wallets_considered,
+            "accepted wallets cannot exceed considered wallets",
+        )
+        _require(
+            0 <= self.universe_after_filters <= self.universe_discovered,
+            "filtered universe cannot exceed the discovered universe",
+        )
+        for name in ("wallets_rejected", "markets_rejected", "dex_failures"):
+            object.__setattr__(self, name, MappingProxyType(dict(getattr(self, name))))
+
+
+@dataclass(frozen=True, slots=True)
+class SignalReport:
+    as_of: datetime
+    signals: tuple[TickerSignal, ...]  # ranked
+    diagnostics: Diagnostics
+
+    def __post_init__(self) -> None:
+        require_aware(self.as_of)

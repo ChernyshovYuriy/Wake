@@ -1,0 +1,69 @@
+# hl-whale-signals report, as of 2026-09-24 12:45 UTC
+
+_Research signal derived from Hyperliquid HIP-3 perp activity. Not financial advice._
+
+## Ranked signals
+
+| # | ticker | dir | score | tilt | flow | overnight | wallets | flags |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| 1 | NVDA | long | +0.620 | +0.800 | +0.600 | +0.300 | 4 | - |
+| 2 | TSLA | short | -0.410 | -0.500 | -0.400 | -0.200 | 4 | thin_volume |
+| 3 | AAPL | flat | +0.030 | +0.100 | +0.000 | -0.100 | 4 | cash_session_open, weak_sample |
+
+## Insufficient corroboration (not scored)
+
+- **META** (wallets 2): 2 trusted wallets < 3 (trust >= 0.4)
+
+## Evidence
+
+### xyz:NVDA (scored)
+
+long: sample
+
+- market: mark 200.00, open interest $2,000,000, 24h volume $42,000,000
+- flags: -
+- **tilt** +0.800: net_usd=800,000, gross_usd=1,000,000, n_long=3, n_short=1
+- **flow** +0.600: flow_usd=120,000, oi_usd=2,000,000, n_fills=7
+- **overnight** +0.300: ref_px=100.00, last_px=100.90, pct=0.009, stale=false
+
+### xyz:TSLA (scored)
+
+short: sample
+
+- market: mark 200.00, open interest $2,000,000, 24h volume $42,000,000
+- flags: thin_volume
+- **tilt** -0.500: net_usd=-500,000, gross_usd=1,000,000, n_long=3, n_short=1
+- **flow** -0.400: flow_usd=-80,000, oi_usd=2,000,000, n_fills=7
+- **overnight** -0.200: ref_px=100.00, last_px=99.40, pct=-0.006, stale=false
+
+### xyz:AAPL (scored)
+
+flat: sample
+
+- market: mark 200.00, open interest $2,000,000, 24h volume $42,000,000
+- flags: cash_session_open, weak_sample
+- **tilt** +0.100: net_usd=100,000, gross_usd=1,000,000, n_long=3, n_short=1
+- **flow** +0.000: flow_usd=0, oi_usd=2,000,000, n_fills=7
+- **overnight** -0.100: ref_px=100.00, last_px=99.70, pct=-0.003, stale=false
+
+### xyz:META (insufficient)
+
+2 trusted wallets < 3 (trust >= 0.4)
+
+- market: mark 200.00, open interest $2,000,000, 24h volume $42,000,000
+- flags: -
+- **tilt** +0.200: net_usd=200,000, gross_usd=1,000,000, n_long=3, n_short=1
+- **flow** +0.000: flow_usd=0, oi_usd=2,000,000, n_fills=7
+- **overnight** +0.000: ref_px=100.00, last_px=100.00, pct=0, stale=false
+
+## Diagnostics
+
+- wallet sources used: curated, census
+- wallet sources failed: apify
+- source note: nansen: disabled: NANSEN_API_KEY is not set
+- source note: apify: failed: HTTP 503
+- wallets: 9 accepted of 40 considered; rejected by filter: inactivity 2, maker_profile 21, min_sample 8
+- wallets with truncated history: 3
+- universe: 45 markets after filters of 80 discovered; rejected by filter: min_day_volume 35
+- unclassified symbols: xyz:NEWCO
+- dex failures: io: RetryableError: HTTP 503
