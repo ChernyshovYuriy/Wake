@@ -307,7 +307,8 @@ def test_backtest_json_to_file(
     assert out == ""
     doc = json.loads(target.read_text())
     assert doc["sample"]["trades"] == 0
-    assert doc["basis"] == "out-of-sample walk-forward"
+    assert doc["basis"] == "in-sample, configured parameters"  # too short for a fold
+    assert any(c.startswith("walk-forward skipped") for c in doc["caveats"])
 
 
 @pytest.mark.parametrize(

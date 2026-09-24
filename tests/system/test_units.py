@@ -26,6 +26,13 @@ def unit(path: Path) -> configparser.ConfigParser:
     return parser
 
 
+def cli_args(path: Path) -> list[str]:
+    """The unit's ExecStart arguments, relative to the app dir, as the CLI would receive them."""
+    argv = shlex.split(unit(path)["Service"]["ExecStart"])
+    assert argv[0] == f"{APP_DIR}/.venv/bin/hlsignals"
+    return [a.replace(f"{APP_DIR}/", "") for a in argv[1:]]
+
+
 def test_expected_units_exist() -> None:
     assert [p.name for p in SERVICES] == [
         "hlsignals-backtest.service",
@@ -40,12 +47,9 @@ def test_expected_units_exist() -> None:
 @pytest.mark.parametrize("path", SERVICES, ids=lambda p: p.name)
 def test_exec_start_is_a_valid_cli_invocation(path: Path) -> None:
     service = unit(path)["Service"]
-    argv = shlex.split(service["ExecStart"])
-    assert argv[0] == f"{APP_DIR}/.venv/bin/hlsignals"
     assert service["WorkingDirectory"] == APP_DIR
     assert service["User"] == "@USER@"
-    args = [a.replace(f"{APP_DIR}/", "") for a in argv[1:]]
-    parsed = _parser().parse_args(args)  # raises SystemExit on a stale command or flag
+    parsed = _parser().parse_args(cli_args(path))  # raises SystemExit on a stale command or flag
     assert parsed.config == Path("config/pi.toml")
 
 
@@ -63,3 +67,11 @@ def test_pi_config_is_valid_and_follows_the_shortlist() -> None:
     assert names == ["curated", "discovered"]
     shortlist = next(s for s in settings.wallet_sources.sources if s.get("name") == "discovered")
     assert shortlist["path"] == settings.discovery.shortlist_path
+
+
+def test_scheduled_backtest_is_long_enough_for_a_walk_forward_fold() -> None:
+    """With too few sessions the walk-forward has no fold and silently degrades to in-sample."""
+    parsed = _parser().parse_args(cli_args(SYSTEM / "hlsignals-backtest.service"))
+    settings = load_settings(ROOT / "config" / "pi.toml").backtest
+    assert parsed.walk_forward
+    assert parsed.last_sessions >= settings.train_sessions + settings.test_sessions

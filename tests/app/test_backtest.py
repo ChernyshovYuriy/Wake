@@ -85,6 +85,24 @@ def test_walk_forward_runs_on_the_grid() -> None:
     assert "out-of-sample" in report.verdict() or report.verdict().startswith("INCONCLUSIVE")
 
 
+def test_walk_forward_without_a_fold_falls_back_to_the_single_pass_and_says_so() -> None:
+    """A period too short for one train+test fold must not report an empty 'out-of-sample'
+    result: the verdict falls back to the in-sample pass and a caveat explains why."""
+    start, end = scenario.DAY, SESSIONS[SESSIONS.index(scenario.DAY) + 9]
+    report = run_backtest(
+        settings=settings(train_sessions=10, test_sessions=4),
+        loaded=loaded(),
+        calendar=CALENDAR,
+        equities=frozenset(SYMBOLS),
+        start=start,
+        end=end,
+        walk_forward=True,
+    )
+    assert report.walk_forward is None
+    assert report.basis()[2] == "in-sample, configured parameters"
+    assert any("walk-forward skipped: 10 sessions, at least 11 needed" in c for c in report.caveats)
+
+
 # --- load_history -------------------------------------------------------------------------------
 
 NOW = datetime(2026, 9, 24, 12, tzinfo=UTC)

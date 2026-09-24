@@ -219,12 +219,19 @@ def run_backtest(
 
     configured = SignalParams(settings.signals.min_trust, settings.signals.epsilon)
     wf = None
+    skipped: list[str] = []
     if walk_forward:
         grid = [SignalParams(t, e) for t in bt.min_trust_grid for e in bt.epsilon_grid]
         folds = make_folds(
             days, train=bt.train_sessions, test=bt.test_sessions, embargo=bt.horizon_sessions - 1
         )
-        wf = WalkForward(folds, grid, replay).run()
+        if folds:
+            wf = WalkForward(folds, grid, replay).run()
+        else:  # an empty walk-forward would report an empty "out-of-sample" result
+            skipped.append(
+                f"walk-forward skipped: {len(days)} sessions, at least {bt.train_sessions + 1} "
+                "needed for one fold; results are in-sample"
+            )
     single = replay(configured, days)
     excluded = source.excluded_wallets
     exclusion = (
@@ -244,5 +251,5 @@ def run_backtest(
         parameters=str(configured),
         single=single,
         walk_forward=wf,
-        caveats=(*STANDING_CAVEATS, *loaded.notes, *exclusion),
+        caveats=(*STANDING_CAVEATS, *loaded.notes, *exclusion, *skipped),
     )

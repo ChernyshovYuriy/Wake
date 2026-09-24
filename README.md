@@ -105,7 +105,7 @@ loop on their own, starting with **no wallets at all**:
 | `hlsignals-dashboard.service` | always on | read-only web view at `http://<pi>:8081` |
 | `hlsignals-discover.timer` | Sat 02:00 | vets census wallets (new first, rejected ones again after 28 days, accepted ones every week) into `data/discovered_wallets.toml` |
 | `hlsignals-run.timer` | Mon–Fri 08:45 | the report, on `config/wallets.toml` + the shortlist → `data/reports/signals-YYYY-MM-DD.{txt,md,json}` and `signals-latest.*` |
-| `hlsignals-backtest.timer` | Sun 02:00 | walk-forward backtest of the latest 60 sessions → `data/reports/backtest-*` |
+| `hlsignals-backtest.timer` | Sun 02:00 | walk-forward backtest of the latest 80 sessions → `data/reports/backtest-*` |
 
 Times are pinned to `America/New_York`, whatever the Pi's own timezone.
 
@@ -417,6 +417,11 @@ JSON fields: `period` (`start`, `end`), `sample` (`sessions`, `trades`),
   used); wallets and the universe come from today (selection and survivorship bias);
   positions opened before the lookback and not traded inside it are invisible; overlapping
   trades are not independent.
+- **Walk-forward needs a long enough period.** One fold takes `train_sessions` +
+  `test_sessions` (default 60 + 20). A shorter backtest skips the walk-forward, says so in
+  the caveats, and reports in-sample results. With 1h candles (~7 months) and the 90-day
+  lookback, about 80 sessions is the longest period the API can serve, so a backtest
+  holds only one fold today.
 - **Yahoo Finance** (backtest stock prices) is an unofficial, undocumented endpoint; it
   sits behind a port and can be replaced.
 - **Output is research signal, not financial advice.**

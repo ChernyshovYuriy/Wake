@@ -46,3 +46,33 @@ feature evidence, and corroboration reasons show "N involved".
    dropped on every call). **Not yet re-measured live.**
 4. `min_trust = 0.4` with `shrinkage_k = 10` needs roughly 15+ round trips at good quality
    to be reached. The thresholds are starting defaults, to be tuned in the Phase 9 backtest.
+
+## Phase 9 live backtest (2026-09-24)
+
+`hlsignals -v backtest --start 2026-07-01 --end 2026-09-17 --walk-forward`, default
+config (census + curated sources), laptop. The first attempt aborted on the fill `dir`
+`Liquidated Isolated Long`. It was fixed by mapping all four liquidation dirs and by
+excluding (and reporting) any wallet whose history cannot be interpreted, instead of
+aborting. The rerun took 44 min wall clock, with peak RSS 687 MB (after the cache-eviction fix;
+Phase 8 peaked at 1.1 GB). Almost all of that time is loading fill histories: the 55-session
+replay itself took about 20 s.
+
+| step | result |
+|---|---|
+| wallets | 46 loaded; 150 dropped by the maker prescreen; 6 skipped (fills not fetchable) |
+| markets | candles for 80; 53 start after the requested start (listing date / depth cap) |
+| replay | 55 sessions, **0 trades** |
+| verdict | **INCONCLUSIVE: 0 trades < 30** |
+
+**What the run showed (and what changed because of it)**
+
+1. No trades, for the same reason as Phase 8: too few wallets clear `min_trust` for
+   corroboration, and the census is mostly market makers. This will not change until
+   discovery has built a shortlist of swing wallets from weeks of census data (the Pi
+   setup does this weekly). The backtest verdict is meaningless before then.
+2. The walk-forward silently had **no folds**. 55 sessions is fewer than the 61 needed for
+   one 60 + 20 fold, yet the report labelled its empty result "out-of-sample". Fixed: the
+   report now falls back to the in-sample pass and adds the caveat "walk-forward skipped: N
+   sessions, at least M needed". The weekly Pi backtest (`--last-sessions 60`) had the same
+   problem and could never form a fold. It now uses 80 sessions (one fold), and a unit test
+   keeps the scheduled window at least `train_sessions + test_sessions`.
