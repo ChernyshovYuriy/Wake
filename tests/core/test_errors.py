@@ -20,3 +20,8 @@ from hlsignals.core import errors
 )
 def test_hierarchy(child: type[Exception], parent: type[Exception]) -> None:
     assert issubclass(child, parent)
+
+
+def test_transport_error_carries_status() -> None:
+    assert errors.RetryableError("x", status=503).status == 503
+    assert errors.NonRetryableError("x").status is None

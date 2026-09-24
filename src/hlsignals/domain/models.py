@@ -46,6 +46,39 @@ def _require_aware(name: str, value: datetime) -> None:
 
 
 @dataclass(frozen=True, slots=True)
+class Dex:
+    """A HIP-3 builder dex (``perpDexs`` entry)."""
+
+    name: str
+    full_name: str
+
+
+@dataclass(frozen=True, slots=True)
+class BookLevel:
+    px: Decimal
+    sz: Decimal
+    n_orders: int
+
+    def __post_init__(self) -> None:
+        _require(self.px > 0 and self.sz >= 0, f"invalid book level {self.px} x {self.sz}")
+
+
+@dataclass(frozen=True, slots=True)
+class L2Book:
+    symbol: Symbol
+    time_ms: int
+    bids: tuple[BookLevel, ...]  # best first (descending px)
+    asks: tuple[BookLevel, ...]  # best first (ascending px)
+
+    def __post_init__(self) -> None:
+        _require(
+            all(a.px > b.px for a, b in zip(self.bids, self.bids[1:], strict=False))
+            and all(a.px < b.px for a, b in zip(self.asks, self.asks[1:], strict=False)),
+            "book levels out of order",
+        )
+
+
+@dataclass(frozen=True, slots=True)
 class Fill:
     wallet: str
     symbol: Symbol

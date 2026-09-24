@@ -244,3 +244,16 @@ They will raise `AdapterError` (fail loud, plan rule 10) and get added when seen
   so callers can drop spot/outcome fills deliberately while unknown values still fail loud.
 - `TickerSignal` / `SignalReport` are defined in Phases 6/7, where their fields are
   specified, rather than guessed now.
+
+## 12. Phase 2 notes
+
+- Transport stack order (builder, Phase 8): `Retrying(RateLimited(Caching(Http)))`. Retry is
+  outermost so every attempt, including one answered with 429, is charged to the budget.
+- The rate limiter charges a request's base weight before the call and the
+  response-size surcharge after it (the size is unknown until the response arrives).
+- The gateway does not know the universe, so it cannot reject unknown coins before the
+  500 response (§8); the universe layer (Phase 3) only asks for discovered symbols.
+- Real-data check (`tests/infra/test_real_fills.py`): 3,999 captured fills over 57 symbols
+  showed zero `startPosition` gaps in API order, and FIFO PnL equals `closedPnl` on every
+  flat-to-flat symbol.
+- Live smoke tests: `pytest -m live tests/live` (excluded from the default run).

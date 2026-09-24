@@ -8,9 +8,10 @@ from typing import Any
 import pytest
 
 from hlsignals.core.errors import AdapterError
-from hlsignals.domain.models import FeatureValue, PositionSide
+from hlsignals.domain.models import BookLevel, FeatureValue, L2Book, PositionSide
 from tests.factories import (
     AS_OF,
+    NVDA,
     D,
     make_candle_series,
     make_fill,
@@ -154,3 +155,19 @@ def test_scored_wallet_validation(overrides: dict[str, Any], error: type[Excepti
 
 def test_as_of_constant_is_aware() -> None:
     assert AS_OF.tzinfo is not None
+
+
+def test_l2_book_orders_levels() -> None:
+    bid_hi, bid_lo = BookLevel(D(101), D(1), 1), BookLevel(D(100), D(1), 1)
+    ask_lo, ask_hi = BookLevel(D(102), D(1), 1), BookLevel(D(103), D(1), 1)
+    book = L2Book(NVDA, 0, (bid_hi, bid_lo), (ask_lo, ask_hi))
+    assert book.bids[0].px == D(101)
+    with pytest.raises(ValueError, match="out of order"):
+        L2Book(NVDA, 0, (bid_lo, bid_hi), ())
+    with pytest.raises(ValueError, match="out of order"):
+        L2Book(NVDA, 0, (), (ask_hi, ask_lo))
+
+
+def test_book_level_validation() -> None:
+    with pytest.raises(ValueError, match="invalid book level"):
+        BookLevel(D(0), D(1), 1)
