@@ -9,7 +9,7 @@ from __future__ import annotations
 import math
 from collections.abc import Mapping
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import date, datetime
 from decimal import Decimal
 from enum import StrEnum
 from types import MappingProxyType
@@ -167,6 +167,19 @@ class Candle:
         for px in (self.open, self.close):
             _require(self.low <= px <= self.high, f"open/close {px} outside low..high")
         _require(self.volume >= 0 and self.n_trades >= 0, "negative candle volume")
+
+
+@dataclass(frozen=True, slots=True)
+class DailyBar:
+    """One regular-session day of the real (cash) stock, used to measure outcomes."""
+
+    ticker: str
+    day: date  # exchange-local date
+    open: float
+    close: float
+
+    def __post_init__(self) -> None:
+        _require(self.open > 0 and self.close > 0, f"invalid bar {self.ticker} {self.day}")
 
 
 @dataclass(frozen=True, slots=True)

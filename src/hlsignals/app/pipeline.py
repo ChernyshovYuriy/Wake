@@ -73,6 +73,11 @@ class SignalPipeline:
     def __init__(self, parts: PipelineParts) -> None:
         self._p = parts
 
+    @property
+    def parts(self) -> PipelineParts:
+        """The assembled collaborators (the backtest reuses them)."""
+        return self._p
+
     def fetch_wallets(self) -> SourceResult:
         return self._p.wallet_source.fetch()
 

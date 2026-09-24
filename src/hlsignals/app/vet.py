@@ -51,9 +51,38 @@ class Prescreen:
 
 
 @dataclass(frozen=True, slots=True)
-class _Prescreened:
+class Prescreened:
+    """A heavy wallet rejected from its first page of fills; the rest was not fetched."""
+
     reason: str
     n_fills: int
+
+
+@dataclass(frozen=True, slots=True)
+class FetchedHistory:
+    fills: list[Fill]
+    truncated: bool
+
+
+def fetch_history(
+    port: FillsPort,
+    address: str,
+    start: datetime,
+    end: datetime,
+    *,
+    equities: frozenset[Symbol],
+    prescreen: Prescreen | None,
+) -> FetchedHistory | Prescreened:
+    """A wallet's fills in [start, end]; heavy market makers stop after one page."""
+    history = port.user_fills_by_time(address, start, end)
+    fills = iter(history)
+    head = list(islice(fills, prescreen.page_size)) if prescreen else []
+    if prescreen and len(head) == prescreen.page_size:
+        sample = [f for f in head if f.symbol in equities]
+        verdict = prescreen_fill_rate(sample, prescreen.max_fills_per_day)
+        if not verdict.accepted:
+            return Prescreened(verdict.reason, len(sample))
+    return FetchedHistory([*head, *fills], history.truncated)
 
 
 @dataclass(frozen=True, slots=True)
@@ -107,7 +136,7 @@ class WalletVetter:
             wallet = self._slice(record, as_of)
         except (TransportError, AdapterError) as exc:
             return VetResult(record, None, None, f"{type(exc).__name__}: {exc}")
-        if isinstance(wallet, _Prescreened):
+        if isinstance(wallet, Prescreened):
             rejection_reason = ("maker_profile", wallet.reason)
             return VetResult(record, None, rejection_reason, None, n_fills=wallet.n_fills)
         rejection = self._chain.evaluate(wallet)
@@ -122,24 +151,26 @@ class WalletVetter:
             wallet=wallet if rejection is None else None,
         )
 
-    def _slice(self, record: WalletRecord, as_of: datetime) -> EquitySlice | _Prescreened:
+    def _slice(self, record: WalletRecord, as_of: datetime) -> EquitySlice | Prescreened:
         start = as_of - timedelta(days=self._settings.lookback_days)
-        history = self._fills.user_fills_by_time(record.address, start, as_of)
-        fills = iter(history)
-        head = list(islice(fills, self._prescreen.page_size)) if self._prescreen else []
-        if self._prescreen and len(head) == self._prescreen.page_size:
-            sample = [f for f in head if f.symbol in self._equities]
-            verdict = prescreen_fill_rate(sample, self._prescreen.max_fills_per_day)
-            if not verdict.accepted:
-                return _Prescreened(verdict.reason, len(sample))
+        fetched = fetch_history(
+            self._fills,
+            record.address,
+            start,
+            as_of,
+            equities=self._equities,
+            prescreen=self._prescreen,
+        )
+        if isinstance(fetched, Prescreened):
+            return fetched
         wallet = EquitySlice.from_history(
             record.address,
-            [*head, *fills],
+            fetched.fills,
             positions=(),
             equities=self._equities,
             as_of_ms=to_ms(as_of),
             raw_score=record.raw_score,
-            truncated=history.truncated,
+            truncated=fetched.truncated,
         )
         traded = frozenset(fill.symbol for fill in wallet.fills)
         return replace(wallet, candles=LazyCandles(self._candles, traded, start, as_of))

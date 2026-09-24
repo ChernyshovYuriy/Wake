@@ -358,3 +358,32 @@ They will raise `AdapterError` (fail loud, plan rule 10) and get added when seen
   positions with past fills. Past as-of runs are replays (`--fixtures`) or backtests (Phase 9).
 - Census selection bias: `census.min_observations` favours the most active wallets, which
   on the tape are mostly market makers. Swing traders appear rarely in a short census.
+
+## 19. Phase 9 notes (backtest)
+
+- **Stock prices**: Stooq now serves a JavaScript proof-of-work page instead of CSV, so it
+  is unusable as a data feed (not circumvented). Daily bars come from Yahoo Finance's chart
+  endpoint (`query1.finance.yahoo.com/v8/finance/chart/<T>`: unofficial and undocumented,
+  shape verified 2026-09-24, fixture `tests/fixtures/prices/yahoo_nvda_1d.json`). It sits
+  behind the `PriceHistory` port and can be swapped.
+- **Look-ahead guard**: `backtest/asof.AsOfView` is the only way signal construction sees
+  history (fills <= t, candles closed by t, prior scores taken by t). Reading past t raises
+  `LookAheadError`. Outcomes are measured from the price book by the replay only.
+- **Trades**: signals built `preopen_minutes` before each session open; long/short signals
+  trade the real stock from that day's open to the close of the `horizon_sessions`-th
+  session; every trade carries a buy-and-hold benchmark over the same window and cost.
+  Trades with missing bars or an exit that hasn't happened yet are skipped and counted.
+- **Reconstruction** (`backtest/signal_source.py`): positions from fills (LotBook) as there
+  is no historical clearinghouseState; market context from candles; **open interest has no
+  history**, so today's contract count is valued at each date's price (approximation).
+- **Walk-forward**: non-overlapping test windows; train windows are embargoed by
+  `horizon_sessions - 1` sessions so no training trade's outcome reaches into its test
+  window; parameters (min_trust, epsilon) are chosen by mean net return on train only.
+- **Verdict**: out-of-sample (walk-forward) when run, else in-sample; below
+  `min_trades_for_verdict` it is INCONCLUSIVE regardless of the numbers.
+- **Standing caveats** printed with every report: OI approximation, wallets chosen from
+  today's sources (selection bias), today's universe (survivorship bias), invisible
+  pre-lookback positions, overlapping (non-independent) trades.
+- DoD tests on a synthetic market with a planted 20-session trend: momentum source
+  mean +0.90%/trade, t = +9.5 over 840 trades; the same signals with shuffled directions
+  -0.02%/trade, t = -0.2. A source reading past t fails with LookAheadError.

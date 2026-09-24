@@ -8,7 +8,7 @@ import pytest
 from hlsignals.core.clock import MS_PER_DAY
 from hlsignals.domain.models import Fill
 from hlsignals.wallets.scoring.slice import EquitySlice
-from tests.factories import AAPL, BTC, HOUR_MS, NVDA, T0_MS, WALLET, make_fills, make_position
+from tests.factories import AAPL, BTC, HOUR_MS, NVDA, T0_MS, WALLET, D, make_fills, make_position
 
 EQUITIES = frozenset({NVDA, AAPL})
 AS_OF = T0_MS + 30 * MS_PER_DAY
@@ -97,3 +97,12 @@ def test_candles_and_score_carried() -> None:
 def test_same_day_fills_count_one_active_day() -> None:
     s = slice_of(make_fills([("Open Long", 1, 100), ("Close Long", 1, 100)], step_ms=HOUR_MS))
     assert s.fills_per_active_day == 2.0
+
+
+def test_net_sizes_at_as_of() -> None:
+    fills = make_fills([("Open Long", 2, 100), ("Close Long", 1, 100)]) + make_fills(
+        [("Open Short", 3, 50)], symbol=AAPL, t0_ms=T0_MS + 10 * HOUR_MS
+    )
+    s = slice_of(sorted(fills, key=lambda f: f.time_ms))
+    assert s.net_sizes == {NVDA: D(1), AAPL: D(-3)}
+    assert slice_of(fills[:1], as_of_ms=T0_MS - 1).net_sizes == {}

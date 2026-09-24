@@ -80,8 +80,13 @@ reconnect_delay_s = 5
 format = "table"                    # table | markdown | json
 
 [backtest]
-horizon_days = 5
-cost_bps = 5
-train_days = 60
-test_days = 20
+horizon_sessions = 5              # enter at the open, exit at the close of the 5th session
+cost_bps_per_side = 5
+preopen_minutes = 30              # signals are built this long before each open
+train_sessions = 60
+test_sessions = 20
 min_trades_for_verdict = 30
+min_trust_grid = [0.2, 0.3, 0.4]  # walk-forward: tuned on train windows only
+epsilon_grid = [0.05, 0.1]
+ticker_overrides = { PURRDAT = "PURR" }
+prices_timeout_s = 30

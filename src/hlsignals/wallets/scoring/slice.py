@@ -11,6 +11,7 @@ from __future__ import annotations
 import statistics
 from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass, field
+from decimal import Decimal
 
 from hlsignals.core.clock import MS_PER_DAY, ms_to_days
 from hlsignals.domain.lots import LotBook, RoundTrip
@@ -34,6 +35,7 @@ class EquitySlice:
     candles: Mapping[Symbol, Sequence[Candle]] = field(default_factory=dict)
     raw_score: float | None = None
     truncated: bool = False  # the API history cap was hit: older activity is missing
+    net_sizes: Mapping[Symbol, Decimal] = field(default_factory=dict)  # position at as_of
 
     @classmethod
     def from_history(
@@ -60,6 +62,7 @@ class EquitySlice:
             candles=dict(candles or {}),
             raw_score=raw_score,
             truncated=truncated,
+            net_sizes={s: book.position(s) for s in sorted(book.symbols)},
         )
 
     @property

@@ -1,4 +1,4 @@
-"""Command line: run | vet | census | capture-fixtures.
+"""Command line: run | vet | census | backtest | capture-fixtures.
 
 Exit codes (IMPLEMENTATION_PLAN.md §6.13): 0 ok, 2 config error, 3 all wallet sources
 failed, 4 API error.
@@ -17,14 +17,17 @@ import sys
 import tomllib
 from collections.abc import Callable, Mapping, Sequence
 from contextlib import AbstractContextManager
-from datetime import datetime, timedelta
+from datetime import date, datetime, timedelta
 from pathlib import Path
 
+from hlsignals.app.backtest import load_history, run_backtest
 from hlsignals.app.builder import PipelineBuilder, open_registry
 from hlsignals.app.config import Settings, load_settings
 from hlsignals.app.pipeline import SignalPipeline
 from hlsignals.app.vet import render_vet
 from hlsignals.app.wiring import build_transport, load_catalog, load_equities
+from hlsignals.backtest.prices import PriceHistory
+from hlsignals.backtest.report import backtest_to_json, render_backtest
 from hlsignals.core.clock import (
     Clock,
     FakeClock,
@@ -40,6 +43,7 @@ from hlsignals.domain.models import TapeTrade, WalletRecord
 from hlsignals.infra.recording import RecordingTransport, pseudonym
 from hlsignals.infra.tape_feed import TapeFeed, WsConnection, websocket_connect
 from hlsignals.infra.transport import FixtureTransport, Transport
+from hlsignals.infra.yahoo import YahooPriceHistory
 from hlsignals.reporting.renderers import REPORT_FORMATS, renderer_for
 from hlsignals.wallets.census.recorder import CensusRecorder
 from hlsignals.wallets.census.tape import TapeSubject
@@ -53,6 +57,7 @@ EXIT_API = 4
 
 TransportFactory = Callable[[Settings, Clock], Transport]
 Connect = Callable[[str], AbstractContextManager[WsConnection]]
+PricesFactory = Callable[[Settings], PriceHistory]
 
 
 @dataclasses.dataclass(frozen=True, slots=True)
@@ -64,6 +69,7 @@ class Runtime:
     sleeper: Sleeper
     transport: TransportFactory
     connect: Connect
+    prices: PricesFactory
 
 
 class _StderrHandler(logging.Handler):
@@ -75,6 +81,10 @@ class _StderrHandler(logging.Handler):
 
 def live_transport(settings: Settings, clock: Clock) -> Transport:
     return build_transport(settings.api, clock, SystemSleeper())
+
+
+def live_prices(settings: Settings) -> PriceHistory:
+    return YahooPriceHistory(None, settings.backtest.prices_timeout_s)
 
 
 def _parser() -> argparse.ArgumentParser:
@@ -95,6 +105,13 @@ def _parser() -> argparse.ArgumentParser:
 
     census = commands.add_parser("census", help="record wallets trading US stocks (websocket)")
     census.add_argument("--minutes", type=float, help="stop after this long (default: Ctrl-C)")
+
+    backtest = commands.add_parser("backtest", help="replay past sessions against real stocks")
+    backtest.add_argument("--start", required=True, help="first session (YYYY-MM-DD)")
+    backtest.add_argument("--end", required=True, help="last session (YYYY-MM-DD)")
+    backtest.add_argument("--walk-forward", action="store_true", help="tune on train windows")
+    backtest.add_argument("--format", choices=("text", "json"), default="text")
+    backtest.add_argument("--output", type=Path, help="write the report here")
 
     capture = commands.add_parser("capture-fixtures", help="record a live run for replay")
     capture.add_argument("--out", type=Path, required=True, help="scenario directory")
@@ -117,6 +134,7 @@ def main(argv: Sequence[str] | None = None, *, runtime: Runtime | None = None) -
         sleeper=SystemSleeper(),
         transport=live_transport,
         connect=websocket_connect,
+        prices=live_prices,
     )
     try:
         settings = load_settings(args.config)
@@ -127,6 +145,7 @@ def main(argv: Sequence[str] | None = None, *, runtime: Runtime | None = None) -
             "run": _run,
             "vet": _vet,
             "census": _census,
+            "backtest": _backtest,
             "capture-fixtures": _capture,
         }[args.command]
         return command(args, settings, rt)
@@ -206,6 +225,45 @@ def _address(raw: str) -> str:
         return normalize_address(raw)
     except AdapterError as exc:
         raise ConfigError(str(exc)) from exc
+
+
+def _backtest(args: argparse.Namespace, settings: Settings, rt: Runtime) -> int:
+    start, end = _day(args.start), _day(args.end)
+    if end < start:
+        raise ConfigError(f"--end {end} is before --start {start}")
+    parts = _pipeline(settings, rt.clock, rt.transport(settings, rt.clock), rt.env).parts
+    loaded = load_history(
+        settings=settings,
+        gateway=parts.gateway,
+        locator=parts.locator,
+        wallet_source=parts.wallet_source,
+        equities=parts.equities,
+        prices=rt.prices(settings),
+        start=start,
+        now=rt.clock.now(),
+    )
+    report = run_backtest(
+        settings=settings,
+        loaded=loaded,
+        calendar=parts.calendar,
+        equities=parts.equities,
+        start=start,
+        end=end,
+        walk_forward=args.walk_forward,
+    )
+    text = render_backtest(report) if args.format == "text" else backtest_to_json(report)
+    if args.output is None:
+        print(text, end="")
+    else:
+        args.output.write_text(text)
+    return EXIT_OK
+
+
+def _day(raw: str) -> date:
+    try:
+        return date.fromisoformat(raw)
+    except ValueError as exc:
+        raise ConfigError(f"not a date (YYYY-MM-DD): {raw!r}") from exc
 
 
 def _census(args: argparse.Namespace, settings: Settings, rt: Runtime) -> int:

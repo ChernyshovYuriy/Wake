@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 from collections.abc import Iterator
 from contextlib import contextmanager
-from datetime import datetime, timedelta
+from datetime import date, datetime, timedelta
 from pathlib import Path
 from typing import Any
 
@@ -12,6 +12,7 @@ import pytest
 from hlsignals.app.cli import Runtime, main
 from hlsignals.core.clock import Clock, FakeClock, FakeSleeper, from_ms
 from hlsignals.core.errors import RetryableError
+from hlsignals.domain.models import DailyBar
 from hlsignals.infra.tape_feed import WsConnection
 from hlsignals.infra.transport import FixtureTransport, Payload, Transport
 from tests.conftest import FIXTURE_DIR, load_fixture
@@ -37,7 +38,13 @@ def runtime(transport: Transport | None = None, clock: Clock | None = None, **kw
         sleeper=FakeSleeper(),
         transport=lambda settings, c: transport or FixtureTransport(FIXTURE_DIR),
         connect=kw.get("connect", _no_ws),
+        prices=lambda settings: kw.get("prices", NoPrices()),
     )
+
+
+class NoPrices:
+    def daily_bars(self, ticker: str, start: date, end: date) -> list[DailyBar]:
+        return []
 
 
 def _no_ws(url: str) -> Any:
@@ -253,3 +260,59 @@ def test_verbose_logs_progress(config: Path, capsys: pytest.CaptureFixture[str])
     code, _, err = cli(["-v", "--config", str(config), "run"], capsys)
     assert code == 0
     assert "universe:" in err
+
+
+# --- backtest ------------------------------------------------------------------------------------
+
+
+def test_backtest_offline_without_wallets_is_inconclusive(
+    config: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    code, out, _ = cli(
+        ["--config", str(config), "backtest", "--start", "2026-09-01", "--end", "2026-09-10"],
+        capsys,
+    )
+    assert code == 0
+    assert "Verdict: INCONCLUSIVE: 0 trades" in out
+    assert "Caveats:" in out
+    assert "no stock bars returned for" in out  # the fake price feed has nothing
+
+
+def test_backtest_json_to_file(
+    config: Path, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    target = tmp_path / "bt.json"
+    args = [
+        "--config",
+        str(config),
+        "backtest",
+        "--start",
+        "2026-09-01",
+        "--end",
+        "2026-09-10",
+        "--walk-forward",
+        "--format",
+        "json",
+        "--output",
+        str(target),
+    ]
+    code, out, _ = cli(args, capsys)
+    assert code == 0
+    assert out == ""
+    doc = json.loads(target.read_text())
+    assert doc["sample"]["trades"] == 0
+    assert doc["basis"] == "out-of-sample walk-forward"
+
+
+@pytest.mark.parametrize(
+    ("start", "end", "match"),
+    [("2026-09-10", "2026-09-01", "before --start"), ("yesterday", "2026-09-01", "not a date")],
+)
+def test_backtest_bad_dates(
+    config: Path, start: str, end: str, match: str, capsys: pytest.CaptureFixture[str]
+) -> None:
+    code, _, err = cli(
+        ["--config", str(config), "backtest", "--start", start, "--end", end], capsys
+    )
+    assert code == 2
+    assert match in err

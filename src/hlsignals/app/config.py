@@ -146,11 +146,20 @@ class CensusSettings:
 
 @dataclass(frozen=True, slots=True)
 class BacktestSettings:
-    horizon_days: float = 5.0
-    cost_bps: float = 5.0
-    train_days: float = 60.0
-    test_days: float = 20.0
+    horizon_sessions: int = 5  # hold from the entry open to the close of the 5th session
+    cost_bps_per_side: float = 5.0  # spread + slippage per side
+    preopen_minutes: float = 30.0  # signals are built this long before each open
+    train_sessions: int = 60
+    test_sessions: int = 20
     min_trades_for_verdict: int = 30
+    # Walk-forward grid: signal parameters tuned on each train window.
+    min_trust_grid: tuple[float, ...] = (0.2, 0.3, 0.4)
+    epsilon_grid: tuple[float, ...] = (0.05, 0.1)
+    # HIP-3 coin -> cash ticker where they differ (trade.xyz spec: PURRDAT is Nasdaq PURR).
+    ticker_overrides: MappingProxyType[str, str] = field(
+        default_factory=lambda: MappingProxyType({"PURRDAT": "PURR"})
+    )
+    prices_timeout_s: float = 30.0
 
 
 @dataclass(frozen=True, slots=True)
