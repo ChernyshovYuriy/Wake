@@ -18,6 +18,7 @@ from tests.factories import (
     make_market_ctx,
     make_position,
     make_scored_wallet,
+    make_tape_trade,
     make_wallet_record,
 )
 
@@ -171,3 +172,17 @@ def test_l2_book_orders_levels() -> None:
 def test_book_level_validation() -> None:
     with pytest.raises(ValueError, match="invalid book level"):
         BookLevel(D(0), D(1), 1)
+
+
+@pytest.mark.parametrize(
+    ("overrides", "error"),
+    [
+        ({"buyer": "0xBAD"}, AdapterError),
+        ({"seller": "nope"}, AdapterError),
+        ({"px": D(0)}, ValueError),
+        ({"sz": D(-1)}, ValueError),
+    ],
+)
+def test_tape_trade_validation(overrides: dict[str, Any], error: type[Exception]) -> None:
+    with pytest.raises(error):
+        make_tape_trade(**overrides)

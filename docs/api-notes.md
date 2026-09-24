@@ -268,3 +268,18 @@ They will raise `AdapterError` (fail loud, plan rule 10) and get added when seen
   reported as `dexes_skipped`, so a new dex listing US stocks shows up in diagnostics.
 - On the captured fixtures: 80 US-stock markets discovered (8 cross-dex duplicates
   shadowed by `xyz`); 45 remain after the default $1M volume / $250k OI filters.
+
+## 14. Phase 4 notes
+
+- Paid sources (`wallets/sources/paid.py`, one module instead of the plan's `nansen.py` +
+  `apify.py`): gated by `NANSEN_API_KEY` / `APIFY_API_TOKEN`. Vendor response formats are
+  unverified, so no vendor client ships. With a key but no integration the source raises
+  `SourceError` rather than guessing. Without a key it is disabled, which is reported as a
+  diagnostic.
+- Curated wallets file accepts per-entry `as_of` (aware datetime) so a copied score keeps
+  its date; unknown keys are rejected per entry (catches typos).
+- Census: `TapeTrade` (both counterparties) from WS `trades`; the recorder dedupes by
+  (symbol, tid) in a bounded window, since reconnects replay recent trades. Registry:
+  in-memory or SQLite (upsert keeps min first_seen / max last_seen).
+- `TapeFeed` opens connections as context managers (websockets ≥ 13 sync API); the real
+  connector `websocket_connect` is covered by `tests/live/test_live_census.py`.

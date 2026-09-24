@@ -108,6 +108,26 @@ class Fill:
 
 
 @dataclass(frozen=True, slots=True)
+class TapeTrade:
+    """One public trade (``recentTrades`` / WS ``trades``): both counterparties known."""
+
+    symbol: Symbol
+    side: Side  # aggressor side
+    px: Decimal
+    sz: Decimal
+    time_ms: int
+    tid: int
+    buyer: str
+    seller: str
+
+    def __post_init__(self) -> None:
+        require_address(self.buyer)
+        require_address(self.seller)
+        _require(self.px > 0, f"trade px must be positive: {self.px}")
+        _require(self.sz >= 0, f"trade sz must be non-negative: {self.sz}")
+
+
+@dataclass(frozen=True, slots=True)
 class Position:
     wallet: str
     symbol: Symbol

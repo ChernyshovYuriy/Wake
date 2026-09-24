@@ -16,6 +16,7 @@ from hlsignals.infra.adapters import (
     adapt_markets,
     adapt_perp_dexs,
     adapt_positions,
+    adapt_tape_trades,
 )
 from tests.conftest import load_fixture
 
@@ -231,3 +232,30 @@ def test_l2_book_needs_two_sides() -> None:
     raw["levels"] = raw["levels"][:1]
     with pytest.raises(AdapterError, match="levels"):
         adapt_l2_book(raw)
+
+
+# --- recentTrades / WS trades --------------------------------------------------------
+
+
+def test_tape_trades_golden() -> None:
+    raw = response("recent_trades_xyz_nvda")
+    trades = adapt_tape_trades(raw)
+    assert len(trades) == len(raw)
+    first = trades[0]
+    assert first.symbol == Symbol("xyz", "NVDA")
+    assert (first.buyer, first.seller) == tuple(raw[0]["users"])
+    assert first.tid == raw[0]["tid"]
+
+
+def test_tape_trade_normalizes_users() -> None:
+    raw = response("recent_trades_xyz_nvda")[:1]
+    raw[0]["users"] = ["0x" + "AB" * 20, "0x" + "CD" * 20]
+    assert adapt_tape_trades(raw)[0].buyer == "0x" + "ab" * 20
+
+
+@pytest.mark.parametrize("users", [["0x" + "ab" * 20], "0xab", None])
+def test_tape_trade_needs_two_users(users: Any) -> None:
+    raw = response("recent_trades_xyz_nvda")[:1]
+    raw[0]["users"] = users
+    with pytest.raises(AdapterError, match="users"):
+        adapt_tape_trades(raw)

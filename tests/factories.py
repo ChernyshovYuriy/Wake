@@ -18,6 +18,7 @@ from hlsignals.domain.models import (
     Position,
     ScoredWallet,
     Side,
+    TapeTrade,
     WalletRecord,
 )
 from hlsignals.domain.symbols import Symbol
@@ -193,3 +194,18 @@ def make_scored_wallet(
         "track_record_days": 30.0,
     }
     return ScoredWallet(**{**defaults, **overrides})
+
+
+def make_tape_trade(**overrides: Any) -> TapeTrade:
+    tid = next(_tids)
+    defaults: dict[str, Any] = {
+        "symbol": NVDA,
+        "side": Side.BUY,
+        "px": D(100),
+        "sz": D(1),
+        "time_ms": T0_MS,
+        "tid": tid,
+        "buyer": WALLET,
+        "seller": OTHER_WALLET,
+    }
+    return TapeTrade(**{**defaults, **overrides})

@@ -22,11 +22,13 @@ from hlsignals.domain.models import (
     MarketCtx,
     Position,
     Side,
+    TapeTrade,
 )
 from hlsignals.domain.symbols import Symbol
 
 _META_CTX_PAIR = 2
 _BOOK_SIDES = 2
+_COUNTERPARTIES = 2
 
 
 def _field(raw: Any, key: str) -> Any:
@@ -85,6 +87,13 @@ def _symbol(raw: Any, key: str) -> Symbol:
         return Symbol.parse(_str(raw, key))
     except AdapterError as exc:
         raise AdapterError(f"invalid symbol in {key!r}: {exc}") from exc
+
+
+def _side(raw: Any) -> Side:
+    code = _str(raw, "side")
+    if code not in Side._value2member_map_:
+        raise AdapterError(f"field 'side' has unexpected value {code!r}")
+    return Side(code)
 
 
 def _build[T](what: str, factory: Callable[[], T]) -> T:
@@ -168,9 +177,6 @@ def adapt_fills(raw: Any, wallet: str) -> list[Fill]:
 
 
 def _fill(raw: Any, wallet: str) -> Fill:
-    side_code = _str(raw, "side")
-    if side_code not in Side._value2member_map_:
-        raise AdapterError(f"field 'side' has unexpected value {side_code!r}")
     liquidation = raw.get("liquidation")
     liquidated = (
         normalize_address(_str(liquidation, "liquidatedUser")) if liquidation is not None else None
@@ -182,7 +188,7 @@ def _fill(raw: Any, wallet: str) -> Fill:
             symbol=_symbol(raw, "coin"),
             px=_decimal(raw, "px"),
             sz=_decimal(raw, "sz"),
-            side=Side(side_code),
+            side=_side(raw),
             dir=_str(raw, "dir"),
             time_ms=_int(raw, "time"),
             tid=_int(raw, "tid"),
@@ -235,4 +241,29 @@ def _level(raw: Any) -> BookLevel:
     return _build(
         "book level",
         lambda: BookLevel(_decimal(raw, "px"), _decimal(raw, "sz"), _int(raw, "n")),
+    )
+
+
+def adapt_tape_trades(raw: Any) -> list[TapeTrade]:
+    """``recentTrades`` / WS ``trades``: ``users = [buyer, seller]`` (docs/api-notes.md §9)."""
+    return [_tape_trade(entry) for entry in _list(raw, "trades")]
+
+
+def _tape_trade(raw: Any) -> TapeTrade:
+    users = _field(raw, "users")
+    if not isinstance(users, list) or len(users) != _COUNTERPARTIES:
+        raise AdapterError(f"field 'users' must be [buyer, seller], got {users!r}")
+    buyer, seller = (normalize_address(str(u)) for u in users)
+    return _build(
+        f"trade tid={raw.get('tid')}",
+        lambda: TapeTrade(
+            symbol=_symbol(raw, "coin"),
+            side=_side(raw),
+            px=_decimal(raw, "px"),
+            sz=_decimal(raw, "sz"),
+            time_ms=_int(raw, "time"),
+            tid=_int(raw, "tid"),
+            buyer=buyer,
+            seller=seller,
+        ),
     )
