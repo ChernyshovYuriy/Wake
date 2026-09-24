@@ -257,3 +257,14 @@ They will raise `AdapterError` (fail loud, plan rule 10) and get added when seen
   showed zero `startPosition` gaps in API order, and FIFO PnL equals `closedPnl` on every
   flat-to-flat symbol.
 - Live smoke tests: `pytest -m live tests/live` (excluded from the default run).
+
+## 13. Phase 3 notes
+
+- Market calendar data: `config/us_market_calendar.toml`, covering 2025-01-01..2028-12-31,
+  sourced from nyse.com and ICE press releases (URLs in the file), including the
+  2025-01-09 special closure. Dates outside the range raise `ConfigError`.
+  Unscheduled closures must be added by hand.
+- Discovery only queries dexes listing an included catalog symbol. Other live dexes are
+  reported as `dexes_skipped`, so a new dex listing US stocks shows up in diagnostics.
+- On the captured fixtures: 80 US-stock markets discovered (8 cross-dex duplicates
+  shadowed by `xyz`); 45 remain after the default $1M volume / $250k OI filters.

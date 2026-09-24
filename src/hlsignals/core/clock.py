@@ -20,7 +20,8 @@ class Sleeper(Protocol):
     def sleep(self, seconds: float) -> None: ...
 
 
-def _require_aware(dt: datetime) -> None:
+def require_aware(dt: datetime) -> None:
+    """Raise ValueError for a naive datetime."""
     if dt.tzinfo is None or dt.utcoffset() is None:
         raise ValueError(f"naive datetime not allowed: {dt!r}")
 
@@ -32,7 +33,7 @@ def _require_non_negative(seconds: float) -> None:
 
 def to_ms(dt: datetime) -> int:
     """Epoch milliseconds of an aware datetime."""
-    _require_aware(dt)
+    require_aware(dt)
     delta = dt - datetime(1970, 1, 1, tzinfo=UTC)
     return delta // timedelta(milliseconds=1)
 
@@ -61,14 +62,14 @@ class FakeClock:
     """Deterministic clock for tests and backtests."""
 
     def __init__(self, start: datetime) -> None:
-        _require_aware(start)
+        require_aware(start)
         self._now = start
 
     def now(self) -> datetime:
         return self._now
 
     def set(self, t: datetime) -> None:
-        _require_aware(t)
+        require_aware(t)
         self._now = t
 
     def advance(self, delta: timedelta) -> None:

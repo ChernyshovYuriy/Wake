@@ -14,6 +14,7 @@ from decimal import Decimal
 from enum import StrEnum
 from types import MappingProxyType
 
+from hlsignals.core.clock import require_aware
 from hlsignals.domain.address import require_address
 from hlsignals.domain.symbols import Symbol
 
@@ -39,10 +40,6 @@ def _require(condition: bool, message: str) -> None:
 
 def _require_unit(name: str, value: float) -> None:
     _require(math.isfinite(value) and 0.0 <= value <= 1.0, f"{name} must be in [0, 1]: {value}")
-
-
-def _require_aware(name: str, value: datetime) -> None:
-    _require(value.utcoffset() is not None, f"{name} must be timezone-aware: {value!r}")
 
 
 @dataclass(frozen=True, slots=True)
@@ -184,7 +181,7 @@ class WalletRecord:
 
     def __post_init__(self) -> None:
         require_address(self.address)
-        _require_aware("as_of", self.as_of)
+        require_aware(self.as_of)
         if self.raw_score is not None:
             _require(
                 math.isfinite(self.raw_score) and self.raw_score >= 0,
