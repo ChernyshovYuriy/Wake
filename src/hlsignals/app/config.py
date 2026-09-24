@@ -86,6 +86,24 @@ class ScoringSettings:
 
 
 @dataclass(frozen=True, slots=True)
+class SignalSettings:
+    weights: MappingProxyType[str, float] = field(
+        default_factory=lambda: MappingProxyType({"tilt": 1.0, "flow": 1.0, "overnight": 0.5})
+    )
+    flow_window_hours: float = 24.0
+    min_flow_oi_frac: float = 0.02
+    flow_full_scale_oi_frac: float = 0.10  # flow of 10% of OI -> full-strength component
+    min_overnight: float = 0.003
+    overnight_full_scale: float = 0.03  # a 3% overnight move -> full-strength component
+    max_overnight_staleness_hours: float = 2.0
+    min_wallets: int = 3
+    min_trust: float = 0.4
+    epsilon: float = 0.05  # on the normalized [-1, 1] score
+    thin_volume_usd: float = 5_000_000.0
+    weak_confidence: float = 0.5
+
+
+@dataclass(frozen=True, slots=True)
 class VetSettings:
     lookback_days: float = 90.0
     candle_interval: str = "1h"
@@ -97,4 +115,5 @@ class Settings:
     universe: UniverseSettings = field(default_factory=UniverseSettings)
     wallet_filters: WalletFilterSettings = field(default_factory=WalletFilterSettings)
     scoring: ScoringSettings = field(default_factory=ScoringSettings)
+    signals: SignalSettings = field(default_factory=SignalSettings)
     vet: VetSettings = field(default_factory=VetSettings)

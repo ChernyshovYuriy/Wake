@@ -8,7 +8,16 @@ from typing import Any
 import pytest
 
 from hlsignals.core.errors import AdapterError
-from hlsignals.domain.models import BookLevel, FeatureValue, L2Book, PositionSide
+from hlsignals.domain.models import (
+    BookLevel,
+    FeatureValue,
+    L2Book,
+    PositionSide,
+    SignalComponent,
+    SignalDirection,
+    SignalStatus,
+    TickerSignal,
+)
 from tests.factories import (
     AS_OF,
     NVDA,
@@ -186,3 +195,33 @@ def test_book_level_validation() -> None:
 def test_tape_trade_validation(overrides: dict[str, Any], error: type[Exception]) -> None:
     with pytest.raises(error):
         make_tape_trade(**overrides)
+
+
+def test_signal_component_bounds_and_frozen_evidence() -> None:
+    component = SignalComponent(-1.0, {"x": 1})
+    with pytest.raises(TypeError):
+        component.evidence["x"] = 2  # type: ignore[index]
+    for bad in (1.01, -1.01, math.nan):
+        with pytest.raises(ValueError, match="signal component"):
+            SignalComponent(bad)
+
+
+def test_ticker_signal_consistency() -> None:
+    common: dict[str, Any] = {
+        "symbol": NVDA,
+        "components": {},
+        "n_wallets": 3,
+        "reason": "",
+        "flags": frozenset(),
+        "market": make_market_ctx(),
+    }
+    TickerSignal(status=SignalStatus.SCORED, direction=SignalDirection.LONG, score=0.5, **common)
+    TickerSignal(status=SignalStatus.INSUFFICIENT, direction=None, score=None, **common)
+    with pytest.raises(ValueError, match="exactly when"):
+        TickerSignal(status=SignalStatus.INSUFFICIENT, direction=None, score=0.1, **common)
+    with pytest.raises(ValueError, match="exactly when"):
+        TickerSignal(status=SignalStatus.SCORED, direction=None, score=0.1, **common)
+    with pytest.raises(ValueError, match=r"\[-1, 1\]"):
+        TickerSignal(
+            status=SignalStatus.SCORED, direction=SignalDirection.LONG, score=1.5, **common
+        )

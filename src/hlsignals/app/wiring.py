@@ -6,7 +6,12 @@ import tomllib
 from collections.abc import Callable, Mapping
 from pathlib import Path
 
-from hlsignals.app.config import ApiSettings, ScoringSettings, WalletFilterSettings
+from hlsignals.app.config import (
+    ApiSettings,
+    ScoringSettings,
+    SignalSettings,
+    WalletFilterSettings,
+)
 from hlsignals.core.chain import Filter, FilterChain
 from hlsignals.core.clock import Clock, Sleeper
 from hlsignals.core.errors import ConfigError
@@ -20,6 +25,15 @@ from hlsignals.infra.transport import (
     RetryingTransport,
     RetryPolicy,
     WeightTable,
+)
+from hlsignals.signals.combiner import WeightedCombiner
+from hlsignals.signals.corroboration import Corroboration
+from hlsignals.signals.engine import FlagThresholds, SignalEngine
+from hlsignals.signals.features import (
+    FlowFeature,
+    OvernightFeature,
+    PositioningFeature,
+    SignalFeature,
 )
 from hlsignals.universe.instruments import InstrumentCatalog
 from hlsignals.wallets.filters import (
@@ -120,3 +134,26 @@ def load_catalog(path: Path) -> InstrumentCatalog:
 def load_equities(catalog: InstrumentCatalog, include: frozenset[str]) -> frozenset[Symbol]:
     catalog.check_classes(include)
     return catalog.symbols_in(include)
+
+
+def build_signal_engine(settings: SignalSettings) -> SignalEngine:
+    features: list[SignalFeature] = [
+        PositioningFeature(),
+        FlowFeature(
+            settings.flow_window_hours, settings.min_flow_oi_frac, settings.flow_full_scale_oi_frac
+        ),
+        OvernightFeature(
+            settings.min_overnight,
+            settings.overnight_full_scale,
+            settings.max_overnight_staleness_hours,
+        ),
+    ]
+    try:
+        return SignalEngine(
+            features,
+            Corroboration(settings.min_wallets, settings.min_trust),
+            WeightedCombiner(settings.weights, settings.epsilon),
+            FlagThresholds(settings.thin_volume_usd, settings.weak_confidence),
+        )
+    except ValueError as exc:
+        raise ConfigError(f"invalid [signals] settings: {exc}") from exc

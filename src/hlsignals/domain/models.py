@@ -236,3 +236,59 @@ class ScoredWallet:
         _require(self.n_closed_lots >= 0, "negative lot count")
         _require(self.track_record_days >= 0, "negative track record")
         object.__setattr__(self, "features", MappingProxyType(dict(self.features)))
+
+
+class SignalDirection(StrEnum):
+    LONG = "long"
+    SHORT = "short"
+    FLAT = "flat"
+
+
+class SignalStatus(StrEnum):
+    SCORED = "scored"
+    INSUFFICIENT = "insufficient"  # not enough independent trusted wallets
+
+
+class SignalFlag(StrEnum):
+    THIN_VOLUME = "thin_volume"
+    WEAK_SAMPLE = "weak_sample"
+    STALE_OVERNIGHT_REF = "stale_overnight_ref"
+    CASH_SESSION_OPEN = "cash_session_open"
+
+
+@dataclass(frozen=True, slots=True)
+class SignalComponent:
+    """One signal feature's signed contribution: + bullish, - bearish, in [-1, 1]."""
+
+    value: float
+    evidence: Mapping[str, EvidenceValue] = field(default_factory=dict)
+
+    def __post_init__(self) -> None:
+        _require(
+            math.isfinite(self.value) and -1.0 <= self.value <= 1.0,
+            f"signal component must be in [-1, 1]: {self.value}",
+        )
+        object.__setattr__(self, "evidence", MappingProxyType(dict(self.evidence)))
+
+
+@dataclass(frozen=True, slots=True)
+class TickerSignal:
+    symbol: Symbol
+    status: SignalStatus
+    direction: SignalDirection | None  # None when INSUFFICIENT
+    score: float | None  # combined, in [-1, 1]; None when INSUFFICIENT
+    components: Mapping[str, SignalComponent]
+    n_wallets: int  # distinct trusted wallets holding or trading the symbol
+    reason: str  # why INSUFFICIENT, or how the direction was decided
+    flags: frozenset[SignalFlag]
+    market: MarketCtx
+
+    def __post_init__(self) -> None:
+        scored = self.status is SignalStatus.SCORED
+        _require(
+            scored == (self.score is not None) == (self.direction is not None),
+            "score and direction are required exactly when the signal is scored",
+        )
+        if self.score is not None:
+            _require(-1.0 <= self.score <= 1.0, f"score must be in [-1, 1]: {self.score}")
+        object.__setattr__(self, "components", MappingProxyType(dict(self.components)))

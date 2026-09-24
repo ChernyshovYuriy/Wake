@@ -305,3 +305,18 @@ They will raise `AdapterError` (fail loud, plan rule 10) and get added when seen
   `xyz:NVDA` were all market makers (0% taker, ~960 fills/day, ~15 s holds, or 1 round
   trip in 8k fills). All were rejected with explicit reasons. A tape-selected sample is
   dominated by makers, so a curated or census list is needed to find swing wallets.
+
+## 16. Phase 6 notes
+
+- Signals are pure: the pipeline passes `last_close_ms` and `session_open` (from the
+  calendar) as values, because the layer rules forbid `signals` from importing `session`.
+- `TickerInputs` rejects positions/fills from wallets that were not scored, or for another
+  symbol (fail loud instead of silently mixing inputs).
+- **PLAN CHANGE: combined score is normalized**: `sum(w*c) / sum(w)`, in [-1, 1], so
+  epsilon (default 0.05) means the same whatever the weights.
+- Overnight component uses the log return from the last 1h candle closed by the cash close
+  to the last candle closed by as_of, which makes it exactly sign-symmetric under a mirrored
+  price path. Flow uses the window (as_of - window, as_of], divided by OI in USD.
+- Components are computed and reported even for INSUFFICIENT tickers.
+- Flags: thin volume (< $5M/24h), weak sample (mean confidence of corroborating wallets
+  < 0.5), stale overnight reference (latest candle older than 2h), cash session open.

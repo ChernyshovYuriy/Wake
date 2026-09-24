@@ -6,9 +6,10 @@ from types import MappingProxyType
 
 import pytest
 
-from hlsignals.app.config import ScoringSettings, Settings, WalletFilterSettings
+from hlsignals.app.config import ScoringSettings, Settings, SignalSettings, WalletFilterSettings
 from hlsignals.app.wiring import (
     build_gateway,
+    build_signal_engine,
     build_wallet_filter_chain,
     build_wallet_scorer,
     load_catalog,
@@ -72,3 +73,15 @@ def test_build_gateway_without_network() -> None:
     clock = FakeClock(AS_OF)
     gateway = build_gateway(Settings().api, clock, FakeSleeper(clock))
     assert isinstance(gateway, HyperliquidGateway)
+
+
+def test_default_signal_engine() -> None:
+    engine = build_signal_engine(SignalSettings())
+    assert [f.name for f in engine.features] == ["tilt", "flow", "overnight"]
+    assert engine.corroboration.min_wallets == 3
+
+
+def test_signal_engine_bad_weights_is_config_error() -> None:
+    bad = replace(SignalSettings(), weights=MappingProxyType({"tilt": 1.0, "vibes": 1.0}))
+    with pytest.raises(ConfigError, match="vibes"):
+        build_signal_engine(bad)

@@ -22,6 +22,7 @@ from hlsignals.domain.models import (
     WalletRecord,
 )
 from hlsignals.domain.symbols import Symbol
+from hlsignals.signals.inputs import TickerInputs
 from hlsignals.wallets.scoring.slice import EquitySlice
 
 WALLET = "0x" + "a1" * 20
@@ -264,3 +265,31 @@ def make_equity_slice(
         candles=candles,
         raw_score=raw_score,
     )
+
+
+def make_ticker_inputs(
+    *,
+    wallets: Sequence[ScoredWallet] = (),
+    positions: Sequence[Position] = (),
+    fills: Sequence[Fill] = (),
+    candles: Sequence[Candle] = (),
+    market: MarketCtx | None = None,
+    as_of_ms: int = T0_MS + 48 * HOUR_MS,
+    last_close_ms: int = T0_MS + 40 * HOUR_MS,
+    session_open: bool = False,
+) -> TickerInputs:
+    return TickerInputs(
+        symbol=NVDA,
+        market=market or make_market_ctx(),
+        wallets={w.address: w for w in wallets},
+        positions=tuple(positions),
+        fills=tuple(fills),
+        candles=tuple(candles),
+        as_of_ms=as_of_ms,
+        last_close_ms=last_close_ms,
+        session_open=session_open,
+    )
+
+
+def wallet_address(i: int) -> str:
+    return f"0x{i:040x}"
