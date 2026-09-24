@@ -31,10 +31,21 @@ CREATE TABLE IF NOT EXISTS vetted (
     vetted_ms INTEGER NOT NULL,
     accepted INTEGER NOT NULL,
     trust REAL,
+    rejected_by TEXT,
     reason TEXT NOT NULL
 )
 """
 _BUSY_TIMEOUT_S = 30.0
+
+
+@dataclass(frozen=True, slots=True)
+class VettedRow:
+    address: str
+    vetted_ms: int
+    accepted: bool
+    trust: float | None
+    rejected_by: str | None  # filter name when rejected
+    reason: str
 
 
 @dataclass(frozen=True, slots=True)
@@ -54,13 +65,21 @@ class DiscoveryStore:
         if result.error is not None:
             return
         trust = result.scored.trust if result.scored else None
-        reason = "accepted" if result.accepted else "{}: {}".format(*(result.rejection or ("", "")))
+        rejected_by, reason = result.rejection or (None, "accepted")
         with self._db:
             self._db.execute(
-                "INSERT INTO vetted VALUES (?, ?, ?, ?, ?) ON CONFLICT(address) DO UPDATE SET "
+                "INSERT INTO vetted VALUES (?, ?, ?, ?, ?, ?) ON CONFLICT(address) DO UPDATE SET "
                 "vetted_ms = excluded.vetted_ms, accepted = excluded.accepted, "
-                "trust = excluded.trust, reason = excluded.reason",
-                (result.record.address, vetted_ms, int(result.accepted), trust, reason),
+                "trust = excluded.trust, rejected_by = excluded.rejected_by, "
+                "reason = excluded.reason",
+                (
+                    result.record.address,
+                    vetted_ms,
+                    int(result.accepted),
+                    trust,
+                    rejected_by,
+                    reason,
+                ),
             )
 
     def last(self, address: str) -> tuple[int, bool] | None:
@@ -75,6 +94,25 @@ class DiscoveryStore:
             "ORDER BY trust DESC, address"
         ).fetchall()
         return [ShortlistEntry(*row) for row in rows]
+
+    def recent(self, limit: int) -> list[VettedRow]:
+        rows = self._db.execute(
+            "SELECT address, vetted_ms, accepted, trust, rejected_by, reason FROM vetted "
+            "ORDER BY vetted_ms DESC, address LIMIT ?",
+            (limit,),
+        ).fetchall()
+        return [VettedRow(a, t, bool(ok), trust, by, why) for a, t, ok, trust, by, why in rows]
+
+    def rejection_counts(self) -> dict[str, int]:
+        """Currently rejected wallets by the filter that rejected them."""
+        rows = self._db.execute(
+            "SELECT rejected_by, count(*) FROM vetted WHERE accepted = 0 GROUP BY rejected_by"
+        ).fetchall()
+        return {name: n for name, n in rows}
+
+    def last_vetted_ms(self) -> int | None:
+        value: int | None = self._db.execute("SELECT max(vetted_ms) FROM vetted").fetchone()[0]
+        return value
 
     def close(self) -> None:
         self._db.close()

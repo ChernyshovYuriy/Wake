@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+{% block title %}Backtest · hl-whale-signals{% endblock %}
+{% block content %}
+<div class="header-row"><h1>Backtest</h1><button onclick="location.reload()" class="refresh-btn">↻ Refresh</button></div>
+{% if days %}<p class="days muted">Runs: <a href="{{ url_for('backtest') }}">latest</a>
+  {% for d in days[:20] %}<a href="{{ url_for('backtest', day=d.isoformat()) }}">{{ d.isoformat() }}</a>{% endfor %}</p>{% endif %}
+{% if not doc %}
+  <p class="banner banner-info">No backtest {{ 'for ' ~ day.isoformat() if day else 'yet' }}. It runs weekly (Sunday 02:00 New York).</p>
+{% else %}
+  {% set verdict_class = 'good' if doc.verdict.startswith('BEAT') else ('warn' if doc.verdict.startswith('INCONCLUSIVE') else 'bad') %}
+  <p class="banner {{ 'banner-info' if verdict_class == 'good' else 'banner-warn' }}"><b>{{ doc.verdict }}</b></p>
+  <p>{{ doc.period.start }} … {{ doc.period.end }} · {{ doc.sample.sessions }} sessions · horizon {{ doc.horizon_sessions }} sessions ·
+     cost {{ doc.cost_bps_per_side }} bps/side · {{ doc.basis }} · parameters {{ doc.parameters }}</p>
+
+  <h2>Results</h2>
+  <div class="table-wrap"><table>
+    <tr><th></th><th class="num">Trades</th><th class="num">Hit rate</th><th class="num">Mean</th><th class="num">Median</th>
+        <th class="num">Sharpe</th><th class="num">Max DD</th><th class="num">Exposure</th></tr>
+    {% for name, m in (('strategy', doc.strategy), ('buy-and-hold', doc.benchmark)) %}
+    <tr><td><b>{{ name }}</b></td><td class="num">{{ m.n_trades }}</td>
+      <td class="num">{{ '%.0f%%'|format(m.hit_rate * 100) if m.hit_rate is not none else '-' }}</td>
+      <td class="num">{{ m.mean|pct }}</td><td class="num">{{ m.median|pct }}</td><td class="num">{{ m.sharpe|num }}</td>
+      <td class="num">{{ '%.2f%%'|format(m.max_drawdown * 100) }}</td><td class="num">{{ '%.0f%%'|format(m.exposure * 100) }}</td></tr>
+    {% endfor %}
+  </table></div>
+
+  {% if doc.walk_forward %}
+  <h2>Walk-forward folds</h2>
+  <div class="table-wrap"><table>
+    <tr><th>Train</th><th>Test</th><th>Chosen</th><th class="num">Train mean</th><th class="num">Test mean</th><th class="num">Buy-and-hold</th></tr>
+    {% for f in doc.walk_forward.folds %}
+    <tr><td>{{ f.train|join(' … ') }}</td><td>{{ f.test|join(' … ') }}</td><td>{{ f.chosen }}</td>
+      <td class="num">{{ f.train_metrics.mean|pct }} ({{ f.train_metrics.n_trades }})</td>
+      <td class="num">{{ f.test_metrics.mean|pct }} ({{ f.test_metrics.n_trades }})</td>
+      <td class="num">{{ f.test_benchmark.mean|pct }}</td></tr>
+    {% endfor %}
+  </table></div>
+  {% endif %}
+
+  <h2>Skipped signals</h2>
+  <p>{% for k, v in doc.skipped|dictsort %}{{ k }} {{ v }}{{ ', ' if not loop.last }}{% else %}none{% endfor %}</p>
+  <h2>Caveats</h2>
+  <ul>{% for c in doc.caveats %}<li>{{ c }}</li>{% endfor %}</ul>
+{% endif %}
+{% endblock %}

@@ -40,7 +40,12 @@ def runtime(transport: Transport | None = None, clock: Clock | None = None, **kw
         transport=lambda settings, c: transport or FixtureTransport(FIXTURE_DIR),
         connect=kw.get("connect", _no_ws),
         prices=lambda settings: kw.get("prices", NoPrices()),
+        serve=kw.get("serve", _no_serve),
     )
+
+
+def _no_serve(app: Any, host: str, port: int) -> None:
+    raise AssertionError("no server expected")
 
 
 class NoPrices:
@@ -331,9 +336,9 @@ def test_run_save_dir_writes_dated_reports_and_latest(
     stamp = FIXTURE_NOW.date().isoformat()
     for ext in ("txt", "md", "json"):
         assert (out_dir / f"signals-{stamp}.{ext}").read_text() == (
-            out_dir / f"latest.{ext}"
+            out_dir / f"signals-latest.{ext}"
         ).read_text()
-    assert json.loads((out_dir / "latest.json").read_text())["schema_version"] == 1
+    assert json.loads((out_dir / "signals-latest.json").read_text())["schema_version"] == 1
     assert "saved signals-" in err
 
 
@@ -360,7 +365,20 @@ def test_backtest_last_sessions_ends_before_the_outcome_horizon(
     end = date.fromisoformat(period["end"])
     assert (FIXTURE_NOW.date() - end).days >= 7  # 5 sessions of outcome after the last entry
     assert (out_dir / f"backtest-{FIXTURE_NOW.date().isoformat()}.json").exists()
-    assert (out_dir / "latest.txt").exists()
+    assert (out_dir / "backtest-latest.txt").exists()
+
+
+def test_signal_and_backtest_reports_do_not_overwrite_each_others_latest(
+    config: Path, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    out_dir = tmp_path / "reports"
+    cli(["--config", str(config), "run", "--save-dir", str(out_dir)], capsys)
+    cli(
+        ["--config", str(config), "backtest", "--last-sessions", "5", "--save-dir", str(out_dir)],
+        capsys,
+    )
+    assert json.loads((out_dir / "signals-latest.json").read_text())["schema_version"] == 1
+    assert "verdict" in json.loads((out_dir / "backtest-latest.json").read_text())
 
 
 @pytest.mark.parametrize(
@@ -398,3 +416,23 @@ def test_discover_vets_census_wallets_into_the_shortlist(
     assert "vetted 1" in out
     assert "API errors 1" in out
     assert (tmp_path / "shortlist.toml").exists()
+
+
+def test_dashboard_serves_the_app_on_the_configured_port(
+    config: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    served: list[tuple[str, int]] = []
+
+    def serve(app: Any, host: str, port: int) -> None:
+        served.append((host, port))
+        assert app.test_client().get("/healthz").get_json() == {"ok": True}
+
+    code = main(["--config", str(config), "dashboard"], runtime=runtime(serve=serve))
+    assert code == 0
+    assert served == [("0.0.0.0", 8081)]
+    main(
+        ["--config", str(config), "dashboard", "--host", "127.0.0.1", "--port", "9000"],
+        runtime=runtime(serve=serve),
+    )
+    assert served[-1] == ("127.0.0.1", 9000)
+    assert "dashboard on http://127.0.0.1:9000" in capsys.readouterr().err

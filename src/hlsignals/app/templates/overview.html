@@ -1,0 +1,93 @@
+{% extends "base.html" %}
+{% block title %}Overview · hl-whale-signals{% endblock %}
+{% block head %}<meta http-equiv="refresh" content="300">{% endblock %}
+{% block content %}
+<div class="header-row">
+  <h1>Overview</h1>
+  <button onclick="location.reload()" class="refresh-btn">↻ Refresh</button>
+</div>
+
+<h2>Services</h2>
+{% if not units %}
+  <p class="banner banner-info">systemd units are not available on this machine (install them with
+    <code>sudo bash system/install-services.sh</code>, see <code>system/info</code>).</p>
+{% else %}
+<div class="table-wrap"><table>
+  <tr><th>Unit</th><th>State</th><th>Since / last run</th><th>Next run</th></tr>
+  {% for u in units %}
+  <tr>
+    <td class="mono">{{ u.unit }}</td>
+    <td><span class="badge {{ 'good' if u.healthy else 'bad' }}">{{ u.state }}</span></td>
+    <td>{{ u.last_run or u.since or '-' }}</td>
+    <td>{{ u.next_run or '-' }}</td>
+  </tr>
+  {% endfor %}
+</table></div>
+{% endif %}
+
+<h2>Wallet funnel</h2>
+<div class="funnel">
+  <div class="step"><div class="big">{{ census.wallets if census else 0 }}</div><div class="muted">seen by the census</div></div>
+  <span class="arrow">→</span>
+  <div class="step"><div class="big">{{ census.qualified if census else 0 }}</div><div class="muted">active enough to vet</div></div>
+  <span class="arrow">→</span>
+  <div class="step"><div class="big">{{ discovery.shortlist|length if discovery else 0 }}</div><div class="muted">on the shortlist</div></div>
+  <span class="arrow">→</span>
+  <div class="step"><div class="big">{{ report.diagnostics.wallets_accepted if report else 0 }}</div><div class="muted">accepted in the latest report</div></div>
+</div>
+
+<div class="cards" style="margin-top:14px">
+  <div class="card">
+    <h2>Latest signals</h2>
+    {% if report_error %}<p class="banner banner-error">{{ report_error }}</p>{% endif %}
+    {% if not report %}
+      <p class="muted">No saved report yet (the daily run writes <code>data/reports/signals-*.json</code>).</p>
+    {% else %}
+      <p>As of <b>{{ report.as_of.strftime('%Y-%m-%d %H:%M UTC') }}</b>
+        {% if report_age_h is not none and report_age_h > 30 %}<span class="badge warn">{{ '%.0f'|format(report_age_h) }} h old</span>{% endif %}</p>
+      <p><span class="big">{{ scored|length }}</span> scored, {{ report.signals|length - scored|length }} insufficient</p>
+      {% for s in scored[:5] %}
+        <div><span class="{{ s.direction.value }}">{{ s.direction.value }}</span> <b>{{ s.symbol.coin }}</b> {{ s.score|score }} <span class="muted">({{ s.n_wallets }} wallets)</span></div>
+      {% else %}
+        <p class="muted">No stock has enough trusted wallets agreeing yet.</p>
+      {% endfor %}
+      <p><a href="{{ url_for('signals') }}">Full report →</a></p>
+    {% endif %}
+  </div>
+
+  <div class="card">
+    <h2>Census</h2>
+    {% if not census %}
+      <p class="muted">No census database yet: is <code>hlsignals-census.service</code> running?</p>
+    {% else %}
+      <p>{% if census.live %}<span class="badge good">recording</span>{% else %}<span class="badge bad">stale</span>{% endif %}
+        last trade {{ '%.0f'|format(census.minutes_since_last) if census.minutes_since_last is not none else '-' }} min ago</p>
+      <p>{{ census.trades }} trades observed across {{ census.wallets }} wallets</p>
+      <p><a href="{{ url_for('census_page') }}">Census →</a></p>
+    {% endif %}
+  </div>
+
+  <div class="card">
+    <h2>Discovery</h2>
+    {% if not discovery %}
+      <p class="muted">Discovery has not run yet (weekly, Saturday 02:00 New York).</p>
+    {% else %}
+      <p>Last vetting {{ discovery.last_run_ms|when }}
+        {% if discovery_age_d is not none and discovery_age_d > 8 %}<span class="badge warn">{{ '%.0f'|format(discovery_age_d) }} days ago</span>{% endif %}</p>
+      <p><span class="big">{{ discovery.shortlist|length }}</span> wallets on the shortlist</p>
+      <p><a href="{{ url_for('wallets') }}">Wallets →</a></p>
+    {% endif %}
+  </div>
+
+  <div class="card">
+    <h2>Backtest</h2>
+    {% if not backtest %}
+      <p class="muted">No backtest yet (weekly, Sunday 02:00 New York).</p>
+    {% else %}
+      <p>{{ backtest.period.start }} … {{ backtest.period.end }}, {{ backtest.sample.trades }} trades</p>
+      <p><b>{{ backtest.verdict }}</b></p>
+      <p><a href="{{ url_for('backtest') }}">Backtest →</a></p>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

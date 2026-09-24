@@ -1,0 +1,19 @@
+[Unit]
+Description=hl-whale-signals web dashboard (read-only, LAN, port 8081)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=@USER@
+WorkingDirectory=@APP_DIR@
+ExecStart=@APP_DIR@/.venv/bin/hlsignals --config @APP_DIR@/config/pi.toml dashboard
+Restart=on-failure
+RestartSec=5
+Nice=10
+MemoryMax=256M
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

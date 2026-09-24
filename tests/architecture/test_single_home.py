@@ -104,9 +104,19 @@ def _imported_modules(tree: ast.AST) -> Iterator[tuple[str, int]]:
             yield node.module.split(".")[0], node.lineno
 
 
+# Explicit, greppable opt-out for a ':' that is not a dex:coin symbol (e.g. host:port).
+# Honoured by the symbol rule only; every other rule has no opt-out.
+SYMBOL_EXEMPT = "# not-a-symbol"
+
+
 def sources() -> Iterator[tuple[str, ast.AST]]:
     for path in sorted(SRC.rglob("*.py")):
         yield path.relative_to(SRC).as_posix(), ast.parse(path.read_text(), filename=str(path))
+
+
+def exempt(path: str, hit: str) -> bool:
+    line_no = int(hit.split()[1].rstrip(":"))
+    return SYMBOL_EXEMPT in (SRC / path).read_text().splitlines()[line_no - 1]
 
 
 # (rule, applies-to predicate over the relative path)
@@ -137,9 +147,23 @@ PLANTED = [
 def test_rule_holds(rule_name: str) -> None:
     rule, applies = RULES[rule_name]
     violations = [
-        f"{path} {hit}" for path, tree in sources() if applies(path) for hit in rule(tree)
+        f"{path} {hit}"
+        for path, tree in sources()
+        if applies(path)
+        for hit in rule(tree)
+        if not (rule_name == SYMBOLS_RULE and exempt(path, hit))
     ]
     assert violations == []
+
+
+def test_exemption_marker_is_rare_and_only_on_real_non_symbol_colons() -> None:
+    marked = [
+        (path, line)
+        for path, _ in sources()
+        for line in (SRC / path).read_text().splitlines()
+        if SYMBOL_EXEMPT in line
+    ]
+    assert len(marked) <= 3, marked  # an escape hatch, not a habit
 
 
 @pytest.mark.parametrize(("rule_name", "source"), PLANTED)

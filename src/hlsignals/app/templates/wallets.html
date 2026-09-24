@@ -1,0 +1,48 @@
+{% extends "base.html" %}
+{% block title %}Wallets · hl-whale-signals{% endblock %}
+{% block content %}
+<div class="header-row"><h1>Wallets</h1><button onclick="location.reload()" class="refresh-btn">↻ Refresh</button></div>
+
+<h2>Shortlist (found by discovery){% if discovery %} · {{ discovery.shortlist|length }}{% endif %}</h2>
+{% if not discovery %}
+  <p class="banner banner-info">Discovery has not run yet. It vets census wallets weekly (Saturday 02:00 New York);
+    run it now with <code>sudo systemctl start hlsignals-discover.service</code>.</p>
+{% elif not discovery.shortlist %}
+  <p class="banner banner-info">No wallet has passed vetting yet. The census needs time to collect active wallets.</p>
+{% else %}
+<div class="table-wrap"><table>
+  <tr><th>Wallet</th><th class="num">Trust when vetted</th><th>Vetted</th></tr>
+  {% for w in discovery.shortlist %}
+  <tr><td class="mono"><a href="{{ explorer }}{{ w.address }}" target="_blank" rel="noopener">{{ w.address }}</a></td>
+    <td class="num">{{ '%.3f'|format(w.trust) }}</td><td>{{ w.vetted_ms|when }}</td></tr>
+  {% endfor %}
+</table></div>
+{% endif %}
+
+<h2>Your curated wallets <span class="muted mono">{{ curated_path }}</span></h2>
+{% if curated_error %}<p class="banner banner-error">{{ curated_error }}</p>{% endif %}
+{% if curated %}
+<div class="table-wrap"><table>
+  <tr><th>Wallet</th><th>Note</th></tr>
+  {% for address, note in curated %}
+  <tr><td class="mono"><a href="{{ explorer }}{{ address }}" target="_blank" rel="noopener">{{ address }}</a></td><td>{{ note }}</td></tr>
+  {% endfor %}
+</table></div>
+{% else %}<p class="muted">None yet. Add wallets you trust to the file above.</p>{% endif %}
+
+{% if discovery %}
+<h2>Rejections so far</h2>
+<p>{% for k, v in discovery.rejected|dictsort %}<span class="badge warn">{{ k }} {{ v }}</span> {% else %}none{% endfor %}</p>
+
+<h2>Recent vetting decisions</h2>
+<div class="table-wrap"><table>
+  <tr><th>Vetted</th><th>Wallet</th><th>Decision</th><th class="num">Trust</th></tr>
+  {% for r in discovery.recent %}
+  <tr><td>{{ r.vetted_ms|when }}</td>
+    <td class="mono"><a href="{{ explorer }}{{ r.address }}" target="_blank" rel="noopener">{{ r.address }}</a></td>
+    <td>{% if r.accepted %}<span class="badge good">accepted</span>{% else %}<span class="badge bad">rejected</span> <b>{{ r.rejected_by }}</b>: {{ r.reason }}{% endif %}</td>
+    <td class="num">{{ '%.3f'|format(r.trust) if r.trust is not none else '-' }}</td></tr>
+  {% endfor %}
+</table></div>
+{% endif %}
+{% endblock %}

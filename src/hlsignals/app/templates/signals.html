@@ -1,0 +1,66 @@
+{% extends "base.html" %}
+{% block title %}Signals · hl-whale-signals{% endblock %}
+{% block content %}
+<div class="header-row">
+  <h1>Signals{% if report %} <span class="muted">as of {{ report.as_of.strftime('%Y-%m-%d %H:%M UTC') }}</span>{% endif %}</h1>
+  <button onclick="location.reload()" class="refresh-btn">↻ Refresh</button>
+</div>
+{% if days %}<p class="days muted">Reports: <a href="{{ url_for('signals') }}">latest</a>
+  {% for d in days[:30] %}<a href="{{ url_for('signals', day=d.isoformat()) }}">{{ d.isoformat() }}</a>{% endfor %}</p>{% endif %}
+{% if error %}<p class="banner banner-error">{{ error }}</p>{% endif %}
+
+{% if not report %}
+  <p class="banner banner-info">No report {{ 'for ' ~ day.isoformat() if day else 'saved yet' }}. The daily run
+    (<code>hlsignals-run.timer</code>, Mon–Fri 08:45 New York) writes one.</p>
+{% else %}
+  <h2>Ranked signals ({{ scored|length }})</h2>
+  {% if not scored %}
+    <p class="banner banner-info">No stock has enough trusted wallets agreeing, so nothing is scored.
+      This is expected until discovery has found trusted wallets.</p>
+  {% else %}
+  <div class="table-wrap"><table>
+    <tr><th>Stock</th><th>Direction</th><th class="num">Score</th><th class="num">Tilt</th><th class="num">Flow</th>
+        <th class="num">Overnight</th><th class="num">Wallets</th><th>Flags</th></tr>
+    {% for s in scored %}{% include "_signal_row.html" %}{% endfor %}
+  </table></div>
+  {% endif %}
+
+  <h2>Evidence</h2>
+  {% for s in report.signals %}
+  <details {{ 'open' if loop.index <= 3 and s in scored }}>
+    <summary><b>{{ s.symbol.coin }}</b> · {{ s.status.value }} · {{ s.reason }}</summary>
+    <div class="table-wrap" style="margin:6px 0 12px"><table>
+      <tr><td>market</td><td colspan="2">mark {{ s.market.mark_px|value }}, open interest ${{ '{:,.0f}'.format(s.market.oi_usd) }},
+        24h volume ${{ '{:,.0f}'.format(s.market.day_ntl_vlm) }}; flags: {{ s|flags }}</td></tr>
+      {% for name, c in s.components.items() %}
+      <tr><td>{{ name }}</td><td class="num">{{ c.value|score }}</td><td class="mono">{{ c.evidence|evidence }}</td></tr>
+      {% endfor %}
+    </table></div>
+  </details>
+  {% endfor %}
+
+  <h2>Accepted wallets ({{ report.wallets|length }})</h2>
+  {% if report.wallets %}
+  <div class="table-wrap"><table>
+    <tr><th>Wallet</th><th class="num">Trust</th><th class="num">Confidence</th><th class="num">Decay</th><th class="num">Round trips</th></tr>
+    {% for w in report.wallets %}
+    <tr><td class="mono"><a href="{{ explorer }}{{ w.address }}" target="_blank" rel="noopener">{{ w.address }}</a></td>
+      <td class="num">{{ '%.3f'|format(w.trust) }}</td><td class="num">{{ '%.3f'|format(w.confidence) }}</td>
+      <td class="num">{{ '%.3f'|format(w.decay) }}</td><td class="num">{{ w.n_closed_lots }}</td></tr>
+    {% endfor %}
+  </table></div>
+  {% else %}<p class="muted">None.</p>{% endif %}
+
+  <h2>Diagnostics</h2>
+  {% set d = report.diagnostics %}
+  <div class="table-wrap"><table>
+    <tr><td>wallet sources</td><td>used: {{ d.sources_used|join(', ') or 'none' }}; failed: {{ d.sources_failed|join(', ') or 'none' }}</td></tr>
+    {% for m in d.source_messages %}<tr><td>source note</td><td>{{ m }}</td></tr>{% endfor %}
+    <tr><td>wallets</td><td>{{ d.wallets_accepted }} accepted of {{ d.wallets_considered }};
+      rejected: {% for k, v in d.wallets_rejected|dictsort %}{{ k }} {{ v }}{{ ', ' if not loop.last }}{% else %}none{% endfor %}</td></tr>
+    <tr><td>universe</td><td>{{ d.universe_after_filters }} of {{ d.universe_discovered }} markets after filters</td></tr>
+    <tr><td>unclassified</td><td>{{ d.unclassified_symbols|join(', ') or 'none' }}</td></tr>
+    {% for n in d.notes %}<tr><td>note</td><td>{{ n }}</td></tr>{% endfor %}
+  </table></div>
+{% endif %}
+{% endblock %}

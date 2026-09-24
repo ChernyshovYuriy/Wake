@@ -9,6 +9,7 @@ sudo bash system/install-services.sh          # copies units, daemon-reload
 
 # --- enable (first deployment only) ---------------------------------------------
 sudo systemctl enable --now hlsignals-census.service     # always on: builds the wallet funnel
+sudo systemctl enable --now hlsignals-dashboard.service  # always on: http://<pi>:8081 (read-only, LAN)
 sudo systemctl enable --now hlsignals-discover.timer     # Sat 02:00 ET: census -> shortlist
 sudo systemctl enable --now hlsignals-run.timer          # Mon-Fri 08:45 ET: daily report
 sudo systemctl enable --now hlsignals-backtest.timer     # Sun 02:00 ET: does it work?
@@ -22,21 +23,23 @@ sudo systemctl start hlsignals-backtest.service
 
 # --- logs -------------------------------------------------------------------------
 journalctl -u hlsignals-census.service -n 50 --no-pager
+journalctl -u hlsignals-dashboard.service -n 50 --no-pager
 journalctl -u hlsignals-discover.service -n 100 --no-pager
 journalctl -u hlsignals-run.service -n 100 --no-pager
 journalctl -u hlsignals-backtest.service -n 100 --no-pager
 journalctl -u hlsignals-census.service -f          # follow live
 
 # --- outputs ----------------------------------------------------------------------
+# Easiest: the dashboard, http://<pi>:8081 (Overview / Signals / Wallets / Census / Backtest)
 ls -lt data/reports/ | head                  # signals-YYYY-MM-DD.{txt,md,json}, backtest-*
-cat data/reports/latest.md                   # today's report
+cat data/reports/signals-latest.md           # today's report
 cat data/discovered_wallets.toml             # the current shortlist
 sqlite3 data/census.sqlite 'select count(*), sum(n_fills >= 20) from wallets'
 
 # --- after `git pull` --------------------------------------------------------------
 .venv/bin/pip install -e .                   # if dependencies changed
 sudo bash system/install-services.sh         # if unit files changed
-sudo systemctl restart hlsignals-census.service
+sudo systemctl restart hlsignals-census.service hlsignals-dashboard.service
 # A changed OnCalendar needs the timer restarted too:
 sudo systemctl restart hlsignals-run.timer hlsignals-discover.timer hlsignals-backtest.timer
 

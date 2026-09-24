@@ -83,7 +83,10 @@ _BUSY_TIMEOUT_S = 30.0  # the census writes while discovery / runs read
 
 
 class SqliteRegistry:
-    def __init__(self, path: str | Path) -> None:
+    def __init__(self, path: str | Path, *, read_only: bool = False) -> None:
+        if read_only:  # a viewer: never creates the file, never writes
+            self._db = sqlite3.connect(f"file:{path}?mode=ro", uri=True, timeout=_BUSY_TIMEOUT_S)
+            return
         self._db = sqlite3.connect(path, timeout=_BUSY_TIMEOUT_S)
         self._db.execute("PRAGMA journal_mode=WAL")  # readers don't block the writer
         self._db.execute(_SCHEMA)

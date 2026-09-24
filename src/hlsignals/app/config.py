@@ -174,6 +174,16 @@ class DiscoverySettings:
 
 
 @dataclass(frozen=True, slots=True)
+class DashboardSettings:
+    """Read-only LAN web view (like StockScanner's; no authentication, no actions)."""
+
+    host: str = "0.0.0.0"
+    port: int = 8081  # StockScanner's dashboard uses 8080 on the same Pi
+    reports_dir: str = "data/reports"
+    census_live_minutes: float = 30.0  # no trade recorded for longer -> census shown as stale
+
+
+@dataclass(frozen=True, slots=True)
 class ReportSettings:
     format: str = "table"
 
@@ -192,6 +202,7 @@ class Settings:
     report: ReportSettings = field(default_factory=ReportSettings)
     backtest: BacktestSettings = field(default_factory=BacktestSettings)
     discovery: DiscoverySettings = field(default_factory=DiscoverySettings)
+    dashboard: DashboardSettings = field(default_factory=DashboardSettings)
 
 
 # TOML table path -> Settings field. [wallets] holds sources/precedence and two sub-tables.
@@ -207,6 +218,7 @@ _SECTIONS: Final = {
     ("report",): "report",
     ("backtest",): "backtest",
     ("discovery",): "discovery",
+    ("dashboard",): "dashboard",
 }
 _SECRET_MARKERS: Final = ("api_key", "apikey", "token", "secret", "password")
 

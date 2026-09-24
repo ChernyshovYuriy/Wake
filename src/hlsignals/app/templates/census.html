@@ -1,0 +1,35 @@
+{% extends "base.html" %}
+{% block title %}Census · hl-whale-signals{% endblock %}
+{% block content %}
+<div class="header-row"><h1>Census</h1><button onclick="location.reload()" class="refresh-btn">↻ Refresh</button></div>
+{% if not stats %}
+  <p class="banner banner-info">No census database yet. Start the recorder:
+    <code>sudo systemctl enable --now hlsignals-census.service</code>.</p>
+{% else %}
+<div class="cards">
+  <div class="card"><h2>Status</h2>
+    <p>{% if stats.live %}<span class="badge good">recording</span>{% else %}<span class="badge bad">stale</span>{% endif %}</p>
+    <p>last trade seen {{ stats.last_seen_ms|when }}</p></div>
+  <div class="card"><h2>Wallets</h2><p class="big">{{ stats.wallets }}</p>
+    <p class="muted">{{ stats.qualified }} with ≥ {{ settings.discovery.min_observations }} trades (eligible for discovery)</p></div>
+  <div class="card"><h2>Trades observed</h2><p class="big">{{ stats.trades }}</p>
+    <p class="muted">each trade counts once for the buyer and once for the seller</p></div>
+</div>
+
+<h2>New wallets per day (last {{ stats.new_per_day|length }} days, UTC)</h2>
+<div class="card">
+  <div class="bars">{% for d, n in stats.new_per_day %}<div class="bar" title="{{ d }}: {{ n }}" style="height:{{ (n / peak * 100) if peak else 0 }}%"></div>{% endfor %}</div>
+  <div class="bars-labels">{% for d, n in stats.new_per_day %}<span>{{ d.day }}</span>{% endfor %}</div>
+</div>
+
+<h2>Most active wallets</h2>
+<p class="muted">The most active wallets on the tape are usually market makers; discovery's filters remove them.</p>
+<div class="table-wrap"><table>
+  <tr><th>Wallet</th><th class="num">Trades seen</th><th>First seen</th><th>Last seen</th></tr>
+  {% for o in stats.top %}
+  <tr><td class="mono"><a href="{{ explorer }}{{ o.address }}" target="_blank" rel="noopener">{{ o.address }}</a></td>
+    <td class="num">{{ o.n_fills }}</td><td>{{ o.first_seen_ms|when }}</td><td>{{ o.last_seen_ms|when }}</td></tr>
+  {% endfor %}
+</table></div>
+{% endif %}
+{% endblock %}

@@ -1,0 +1,24 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}hl-whale-signals{% endblock %}</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='dashboard.css') }}">
+  {% block head %}{% endblock %}
+</head>
+<body>
+  <nav class="topnav">
+    <span class="brand">hl-whale-signals</span>
+    <a href="{{ url_for('overview') }}" class="{{ 'active' if request.endpoint == 'overview' }}">Overview</a>
+    <a href="{{ url_for('signals') }}" class="{{ 'active' if request.endpoint == 'signals' }}">Signals</a>
+    <a href="{{ url_for('wallets') }}" class="{{ 'active' if request.endpoint == 'wallets' }}">Wallets</a>
+    <a href="{{ url_for('census_page') }}" class="{{ 'active' if request.endpoint == 'census_page' }}">Census</a>
+    <a href="{{ url_for('backtest') }}" class="{{ 'active' if request.endpoint == 'backtest' }}">Backtest</a>
+  </nav>
+  <main>
+    {% block content %}{% endblock %}
+  </main>
+  <footer>{{ disclaimer }} Read-only view: nothing here places orders or changes files.</footer>
+</body>
+</html>

@@ -30,6 +30,7 @@ def test_expected_units_exist() -> None:
     assert [p.name for p in SERVICES] == [
         "hlsignals-backtest.service",
         "hlsignals-census.service",
+        "hlsignals-dashboard.service",
         "hlsignals-discover.service",
         "hlsignals-run.service",
     ]

@@ -141,3 +141,16 @@ def test_discover_end_to_end(store: DiscoveryStore, tmp_path: Path) -> None:
     )
     assert [r.address for r in pipeline.vetted] == [A]  # B was rejected a day ago: skipped
     assert again.skipped_recent == 1
+
+
+def test_store_reads_for_the_dashboard(store: DiscoveryStore) -> None:
+    assert store.last_vetted_ms() is None
+    store.record(accepted(A, 0.5), NOW_MS - 10)
+    store.record(rejected(B), NOW_MS)
+    store.record(
+        VetResult(make_wallet_record(address=C), None, ("min_sample", "3 < 10"), None), NOW_MS - 5
+    )
+    assert [r.address for r in store.recent(2)] == [B, C]
+    assert store.recent(10)[-1].trust == 0.5
+    assert store.rejection_counts() == {"maker_profile": 1, "min_sample": 1}
+    assert store.last_vetted_ms() == NOW_MS

@@ -71,6 +71,7 @@ export APIFY_API_TOKEN=...    # enables the "apify" wallet source (client not ye
 | `hlsignals vet --wallet 0x… --wallets-file FILE` | Scores wallets and explains every filter decision. |
 | `hlsignals backtest --start 2026-07-01 --end 2026-09-17 [--walk-forward]` | Replays past sessions against real stocks (`--format text\|json`). |
 | `hlsignals discover` | Vets census wallets into the shortlist the daily run follows (`[discovery]`). |
+| `hlsignals dashboard` | Read-only web view of the system state on port 8081 (`[dashboard]`). |
 | `hlsignals capture-fixtures --out DIR` | Records a live run so `run --fixtures DIR` can replay it offline. |
 
 Global options: `--config FILE` (TOML; defaults are built in), `-v` (progress on stderr).
@@ -102,14 +103,31 @@ whole loop, starting with **no wallets at all**:
 |---|---|---|
 | `hlsignals-census.service` | always on | records every wallet trading US-stock perps into `data/census.sqlite` |
 | `hlsignals-discover.timer` | Sat 02:00 | vets census wallets (new first, rejected ones again after 28 days, accepted ones every week) into `data/discovered_wallets.toml` |
-| `hlsignals-run.timer` | Mon–Fri 08:45 | the report, on `config/wallets.toml` + the shortlist → `data/reports/signals-YYYY-MM-DD.{txt,md,json}` and `latest.*` |
+| `hlsignals-run.timer` | Mon–Fri 08:45 | the report, on `config/wallets.toml` + the shortlist → `data/reports/signals-YYYY-MM-DD.{txt,md,json}` and `signals-latest.*` |
 | `hlsignals-backtest.timer` | Sun 02:00 | walk-forward backtest of the latest 60 sessions → `data/reports/backtest-*` |
+| `hlsignals-dashboard.service` | always on | read-only web view at `http://<pi>:8081` |
 
 ```bash
 bash system/setup-pi.sh                     # needs Python >= 3.12 (Pi OS Trixie; Bookworm: see the script)
 sudo bash system/install-services.sh        # fills in user + directory, daemon-reload
 # then the enable / logs commands in system/info
 ```
+
+### Dashboard
+
+`http://<pi>:8081`, the same approach as StockScanner's dashboard (Flask under Waitress,
+LAN-only, no authentication), but **read-only**: it only shows what the jobs produced.
+
+- **Overview**: service and timer state (a failed job shows red), the wallet funnel
+  (census → eligible → shortlist → accepted), latest signals, census freshness, last
+  discovery, last backtest verdict. Refreshes every 5 minutes.
+- **Signals**: the latest (or any dated) report with every component's evidence, the
+  accepted wallets and the diagnostics.
+- **Wallets**: the discovered shortlist with trust, your curated list, rejection counts
+  and recent vetting decisions (addresses link to the Hyperliquid explorer).
+- **Census**: recording or stale, wallets and trades seen, new wallets per day, the most
+  active wallets.
+- **Backtest**: verdict, strategy vs buy-and-hold, walk-forward folds, caveats; past runs.
 
 Configuration for the Pi is `config/pi.toml` (`[discovery]` sets how many wallets are
 vetted per week and when rejected ones are revisited). Expect the first useful reports
@@ -134,6 +152,7 @@ starting points to be tuned with the backtest, not claims of optimality.
 | `[signals]` | component weights, flow/overnight floors and full scales, corroboration, epsilon, flag thresholds |
 | `[calendar]`, `[census]`, `[report]`, `[backtest]` | market calendar file, census database, default report format, backtest settings |
 | `[discovery]` | census → shortlist: minimum census trades, wallets vetted per run, re-vet interval, output files |
+| `[dashboard]` | bind address and port (default 8081), reports directory, when the census counts as stale |
 
 The market calendar (`config/us_market_calendar.toml`) covers 2025–2028 from NYSE sources.
 Dates outside it fail loudly; unscheduled closures must be added by hand.
