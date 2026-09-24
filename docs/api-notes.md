@@ -126,6 +126,14 @@ distinct error (or are filtered upstream by symbol) rather than being lumped wit
 Values documented elsewhere but **not observed**: auto-deleveraging / settlement variants.
 They will raise `AdapterError` (fail loud, plan rule 10) and get added when seen.
 
+**Update 2026-09-24:** a live backtest hit `Liquidated Isolated Long`, which is absent from
+the 62k-fill sample above. Liquidations are forced closes (a long is sold: -, a short
+bought: +). `Liquidated Isolated Long|Short` and `Liquidated Cross Long|Short` are now mapped.
+Only the first was observed; the side cross-check guards all four, and any other
+`Liquidated ...` shape still raises. The same run showed a second problem: one
+uninterpretable wallet aborted the whole backtest. The backtest now excludes such a wallet
+and reports it in the caveats, as the live pipeline already did per wallet.
+
 ## 5. Pagination and history caps (`userFillsByTime`)
 
 - **Page cap: 2000 fills** per response (confirmed on 8+ wallets).

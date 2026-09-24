@@ -23,6 +23,14 @@ PERP_DIR_SIGN: Final[Mapping[str, int]] = MappingProxyType(
         "Close Long": -1,
         "Open Short": -1,
         "Long > Short": -1,
+        # Liquidations close the position with a forced trade: a long is sold, a short
+        # bought. "Liquidated Isolated Long" was observed live (2026-09-24); the other
+        # three follow the same structure and are unobserved. The side cross-check in
+        # signed_size guards all four.
+        "Liquidated Isolated Long": -1,
+        "Liquidated Isolated Short": 1,
+        "Liquidated Cross Long": -1,
+        "Liquidated Cross Short": 1,
     }
 )
 NON_PERP_DIRS: Final[frozenset[str]] = frozenset(

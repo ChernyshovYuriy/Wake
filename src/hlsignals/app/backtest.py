@@ -225,6 +225,16 @@ def run_backtest(
             days, train=bt.train_sessions, test=bt.test_sessions, embargo=bt.horizon_sessions - 1
         )
         wf = WalkForward(folds, grid, replay).run()
+    single = replay(configured, days)
+    excluded = source.excluded_wallets
+    exclusion = (
+        [
+            f"{len(excluded)} wallets excluded: their history could not be interpreted "
+            f"(first: {next(iter(excluded.values()))})"
+        ]
+        if excluded
+        else []
+    )
     return BacktestReport(
         start=start,
         end=end,
@@ -232,7 +242,7 @@ def run_backtest(
         cost_bps_per_side=bt.cost_bps_per_side,
         min_trades_for_verdict=bt.min_trades_for_verdict,
         parameters=str(configured),
-        single=replay(configured, days),
+        single=single,
         walk_forward=wf,
-        caveats=(*STANDING_CAVEATS, *loaded.notes),
+        caveats=(*STANDING_CAVEATS, *loaded.notes, *exclusion),
     )

@@ -126,3 +126,19 @@ def test_view_candles_mapping_is_limited_to_traded_symbols() -> None:
     assert len(candles) == 1
     assert all(c.close_ms <= AS_OF_MS for c in candles[AAA])
     assert candles.get(SYMBOLS[1]) is None
+
+
+def test_a_wallet_with_uninterpretable_history_is_excluded_not_fatal() -> None:
+    broken = wallet_address(9)
+    bad_fill = replace(history(broken)[0], dir="Mystery Direction")
+    base = data()
+    d = dataclasses.replace(
+        base,
+        records=(*base.records, make_wallet_record(address=broken)),
+        fills={**base.fills, broken: (bad_fill,)},
+    )
+    src = source()
+    (aaa,) = [s for s in src.signals_at(d.at(AS_OF_MS)) if s.symbol == AAA]
+    assert aaa.n_wallets == 3  # the three good wallets still count
+    assert broken in src.excluded_wallets
+    assert "unknown fill dir 'Mystery Direction'" in src.excluded_wallets[broken]

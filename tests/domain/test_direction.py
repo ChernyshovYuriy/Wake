@@ -82,3 +82,34 @@ def test_mirroring_flips_sign_and_notional_magnitude_is_px_times_sz(
     fill = make_fill(dir=direction, sz=sz, px=px)
     assert abs(signed_notional(fill)) == pytest.approx(float(px * sz))
     assert signed_size(mirror(fill)) == -signed_size(fill)
+
+
+@pytest.mark.parametrize(
+    ("direction", "sign", "side"),
+    [
+        ("Liquidated Isolated Long", -1, Side.SELL),  # observed live 2026-09-24
+        ("Liquidated Isolated Short", 1, Side.BUY),
+        ("Liquidated Cross Long", -1, Side.SELL),
+        ("Liquidated Cross Short", 1, Side.BUY),
+    ],
+)
+def test_liquidations_close_the_position_with_a_forced_trade(
+    direction: str, sign: int, side: Side
+) -> None:
+    assert is_perp_dir(direction)
+    assert sign_of(direction) == sign
+    fill = make_fill(dir=direction, side=side, sz=D(2))
+    assert signed_size(fill) == sign * D(2)
+
+
+def test_liquidation_side_is_still_cross_checked() -> None:
+    with pytest.raises(AdapterError, match="side"):
+        signed_size(make_fill(dir="Liquidated Isolated Long", side=Side.BUY))
+
+
+@pytest.mark.parametrize(
+    "direction", ["Liquidated Long", "Liquidated Isolated Flat", "Liquidated Portfolio Long"]
+)
+def test_other_liquidation_shapes_stay_unknown(direction: str) -> None:
+    with pytest.raises(AdapterError, match="unknown"):
+        sign_of(direction)

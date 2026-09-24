@@ -25,6 +25,7 @@ from typing import Protocol
 from hlsignals.backtest.asof import AsOfView
 from hlsignals.core.chain import FilterChain
 from hlsignals.core.clock import MS_PER_DAY, MS_PER_HOUR, from_ms, to_ms
+from hlsignals.core.errors import AdapterError
 from hlsignals.domain.candles import price_at
 from hlsignals.domain.models import (
     Candle,
@@ -85,6 +86,7 @@ class HistoricalSignalSource:
         lookback_days: float,
         signal_candle_hours: float,
         cache: dict[int, list[TickerInputs]] | None = None,
+        excluded: dict[str, str] | None = None,
     ) -> None:
         self._equities = equities
         self._wallet_chain = wallet_chain
@@ -95,6 +97,9 @@ class HistoricalSignalSource:
         self._lookback_ms = int(lookback_days * _DAY_MS)
         self._signal_ms = int(signal_candle_hours * MS_PER_HOUR)
         self._cache = cache if cache is not None else {}
+        # Wallets whose history could not be interpreted (address -> first error). They are
+        # left out of every session instead of aborting the whole backtest.
+        self.excluded_wallets: dict[str, str] = excluded if excluded is not None else {}
 
     def with_engine(self, engine: SignalEngine) -> HistoricalSignalSource:
         """The same reconstruction (and cache) with different signal parameters."""
@@ -108,6 +113,7 @@ class HistoricalSignalSource:
             lookback_days=self._lookback_ms / _DAY_MS,
             signal_candle_hours=self._signal_ms / MS_PER_HOUR,
             cache=self._cache,
+            excluded=self.excluded_wallets,
         )
 
     def signals_at(self, view: AsOfView) -> Sequence[TickerSignal]:
@@ -147,17 +153,23 @@ class HistoricalSignalSource:
         start = view.t_ms - self._lookback_ms
         accepted = []
         for record in view.records:
+            if record.address in self.excluded_wallets:
+                continue
             fills = view.fills_between(record.address, start, view.t_ms)
             traded = frozenset(f.symbol for f in fills if f.symbol in self._equities)
-            wallet = EquitySlice.from_history(
-                record.address,
-                fills,
-                positions=(),
-                equities=self._equities,
-                as_of_ms=view.t_ms,
-                candles=_ViewCandles(view, traded, start),
-                raw_score=view.score(record),
-            )
+            try:
+                wallet = EquitySlice.from_history(
+                    record.address,
+                    fills,
+                    positions=(),
+                    equities=self._equities,
+                    as_of_ms=view.t_ms,
+                    candles=_ViewCandles(view, traded, start),
+                    raw_score=view.score(record),
+                )
+            except AdapterError as exc:
+                self.excluded_wallets[record.address] = str(exc)
+                continue
             if self._wallet_chain.evaluate(wallet) is None:
                 accepted.append(_Accepted(self._scorer.score(wallet), wallet))
         return accepted

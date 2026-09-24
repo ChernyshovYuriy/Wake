@@ -191,3 +191,26 @@ def test_load_history_collects_everything_and_explains_gaps() -> None:
         "no stock bars returned for: LATE",
     ):
         assert needle in notes
+
+
+def test_excluded_wallets_are_reported_in_the_caveats() -> None:
+    broken = wallet_address(9)
+    base = loaded()
+    bad = dataclasses.replace(scenario.history(broken)[0], dir="Mystery Direction")
+    data = dataclasses.replace(
+        base.data,
+        records=(*base.data.records, make_wallet_record(address=broken)),
+        fills={**base.data.fills, broken: (bad,)},
+    )
+    start = scenario.DAY
+    report = run_backtest(
+        settings=settings(),
+        loaded=LoadedHistory(data, base.prices, ()),
+        calendar=CALENDAR,
+        equities=frozenset(SYMBOLS),
+        start=start,
+        end=start,
+        walk_forward=False,
+    )
+    assert report.single.trades  # the good wallets still trade
+    assert any("1 wallets excluded" in c and "Mystery Direction" in c for c in report.caveats)
