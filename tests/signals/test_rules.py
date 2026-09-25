@@ -5,6 +5,7 @@ from hypothesis import given
 from hypothesis import strategies as st
 
 from hlsignals.domain.models import (
+    Fill,
     SignalComponent,
     SignalDirection,
     SignalStatus,
@@ -15,6 +16,7 @@ from hlsignals.signals.combiner import WeightedCombiner
 from hlsignals.signals.corroboration import Corroboration
 from hlsignals.signals.ranker import rank
 from tests.factories import (
+    HOUR_MS,
     D,
     make_fill,
     make_market_ctx,
@@ -28,7 +30,14 @@ A, B, C = (wallet_address(i) for i in (1, 2, 3))
 
 # --- corroboration -------------------------------------------------------------------------
 
-RULE = Corroboration(min_wallets=3, min_trust=0.4)
+WINDOW_H = 24.0
+RULE = Corroboration(min_wallets=3, min_trust=0.4, window_hours=WINDOW_H)
+AS_OF_MS = make_ticker_inputs().as_of_ms
+WINDOW_START_MS = AS_OF_MS - int(WINDOW_H * HOUR_MS)
+
+
+def traded(wallet: str, time_ms: int = AS_OF_MS - HOUR_MS) -> Fill:
+    return make_fill(wallet=wallet, time_ms=time_ms)
 
 
 def test_n_minus_one_is_insufficient() -> None:
@@ -46,7 +55,7 @@ def test_exactly_n_holders_or_traders_is_sufficient() -> None:
     inputs = make_ticker_inputs(
         wallets=wallets,
         positions=[make_position(wallet=A), make_position(wallet=B)],
-        fills=[make_fill(wallet=C)],  # C traded in the window without holding now
+        fills=[traded(C)],  # C traded in the window without holding now
     )
     result = RULE.check(inputs)
     assert result.sufficient
@@ -73,16 +82,58 @@ def test_low_trust_and_flat_positions_do_not_count() -> None:
 def test_same_wallet_twice_counts_once() -> None:
     wallets = [make_scored_wallet(address=A, trust=0.5)]
     inputs = make_ticker_inputs(
-        wallets=wallets, positions=[make_position(wallet=A)], fills=[make_fill(wallet=A)] * 2
+        wallets=wallets, positions=[make_position(wallet=A)], fills=[traded(A)] * 2
     )
     assert RULE.check(inputs).n_wallets == 1
 
 
+def test_only_trades_inside_the_window_count() -> None:
+    """Spec §6.10: signals use current positions and *recent* fills. A wallet that is flat
+    and last traded before the window is not involved in the ticker now."""
+    wallets = [make_scored_wallet(address=a, trust=0.9) for a in (A, B, C)]
+    stale = RULE.check(
+        make_ticker_inputs(
+            wallets=wallets, fills=[traded(a, AS_OF_MS - 60 * 24 * HOUR_MS) for a in (A, B, C)]
+        )
+    )
+    assert not stale.sufficient
+    assert stale.wallets == frozenset()
+    assert "0 involved" in stale.reason
+
+
+def test_window_is_open_at_its_start_and_closed_at_as_of() -> None:
+    """Same (as_of - window, as_of] rule as the flow window."""
+    wallets = [make_scored_wallet(address=a, trust=0.9) for a in (A, B, C)]
+    inputs = make_ticker_inputs(
+        wallets=wallets,
+        fills=[traded(A, WINDOW_START_MS), traded(B, WINDOW_START_MS + 1), traded(C, AS_OF_MS)],
+    )
+    assert RULE.check(inputs).wallets == frozenset({B, C})
+
+
+def test_trades_after_as_of_do_not_count() -> None:
+    wallets = [make_scored_wallet(address=A, trust=0.9)]
+    inputs = make_ticker_inputs(wallets=wallets, fills=[traded(A, AS_OF_MS + 1)])
+    assert RULE.check(inputs).wallets == frozenset()
+
+
+def test_holders_count_whatever_the_age_of_their_trades() -> None:
+    wallets = [make_scored_wallet(address=A, trust=0.9)]
+    inputs = make_ticker_inputs(
+        wallets=wallets,
+        positions=[make_position(wallet=A)],
+        fills=[traded(A, AS_OF_MS - 60 * 24 * HOUR_MS)],
+    )
+    assert RULE.check(inputs).wallets == frozenset({A})
+
+
 def test_corroboration_validation() -> None:
     with pytest.raises(ValueError, match="min_wallets"):
-        Corroboration(0, 0.4)
+        Corroboration(0, 0.4, WINDOW_H)
     with pytest.raises(ValueError, match="min_trust"):
-        Corroboration(3, 1.5)
+        Corroboration(3, 1.5, WINDOW_H)
+    with pytest.raises(ValueError, match="window_hours"):
+        Corroboration(3, 0.4, 0.0)
 
 
 # --- combiner -------------------------------------------------------------------------------

@@ -35,7 +35,9 @@ discover markets ─► filter markets ─► fetch wallets ─► vet wallets �
 4. **Signals** per stock, each in [-1, +1] (+ bullish): positioning **tilt** of trusted
    wallets, trusted **flow** relative to open interest, and the **overnight** perp move since
    the last cash close. A stock is scored only when enough independent trusted wallets are
-   involved (**corroboration**); the weighted mean gives a direction: long / short / flat.
+   involved (**corroboration**): holding it now, or having traded it within
+   `corroboration_window_hours` (default 24 h). The weighted mean gives a direction:
+   long / short / flat.
 5. **Backtest** replays past sessions without look-ahead and measures the signals on the
    real stocks against buy-and-hold, after costs, with walk-forward tuning.
 

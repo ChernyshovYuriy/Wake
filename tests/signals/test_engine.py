@@ -41,7 +41,7 @@ ENGINE = SignalEngine(
         FlowFeature(window_hours=24.0, min_oi_frac=0.02, full_scale_oi_frac=0.10),
         OvernightFeature(min_move=0.003, full_scale_move=0.03, max_staleness_hours=2.0),
     ],
-    corroboration=Corroboration(min_wallets=3, min_trust=0.4),
+    corroboration=Corroboration(min_wallets=3, min_trust=0.4, window_hours=24.0),
     combiner=WeightedCombiner({"tilt": 1.0, "flow": 1.0, "overnight": 0.5}, epsilon=0.05),
     flags=FlagThresholds(thin_volume_usd=5_000_000.0, weak_confidence=0.5),
 )
@@ -84,6 +84,16 @@ def test_insufficient_corroboration_has_no_score() -> None:
     assert signal.direction is None
     assert "1 trusted wallets < 3" in signal.reason
     assert set(signal.components) == {"tilt", "flow", "overnight"}  # still explained
+
+
+def test_flat_wallets_with_only_old_trades_do_not_corroborate_a_price_move() -> None:
+    """Regression (AUDIT.md F4-1): three trusted wallets that traded 60 days ago and are
+    flat now, plus a rising perp, used to give a SCORED long made only of the overnight move."""
+    old = [make_fill(wallet=w.address, time_ms=AS_OF - 60 * 24 * MS_PER_HOUR) for w in WALLETS[:3]]
+    signal = ENGINE.evaluate(bullish_inputs(positions=[], fills=old))
+    assert signal.status is SignalStatus.INSUFFICIENT
+    assert signal.direction is None
+    assert "0 trusted wallets < 3" in signal.reason
 
 
 def test_flags() -> None:

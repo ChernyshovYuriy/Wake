@@ -236,7 +236,8 @@ def run_backtest(
     excluded = source.excluded_wallets
     exclusion = (
         [
-            f"{len(excluded)} wallets excluded: their history could not be interpreted "
+            f"{len(excluded)} wallets left out of the sessions whose lookback holds a fill "
+            "that could not be interpreted "
             f"(first: {next(iter(excluded.values()))})"
         ]
         if excluded

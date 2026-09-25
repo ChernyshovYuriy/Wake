@@ -97,8 +97,9 @@ class HistoricalSignalSource:
         self._lookback_ms = int(lookback_days * _DAY_MS)
         self._signal_ms = int(signal_candle_hours * MS_PER_HOUR)
         self._cache = cache if cache is not None else {}
-        # Wallets whose history could not be interpreted (address -> first error). They are
-        # left out of every session instead of aborting the whole backtest.
+        # Wallets whose history could not be interpreted (address -> first error), for the
+        # report. Exclusion itself is decided per view from the fills visible at t: a record
+        # consulted across views would carry a later view's knowledge into earlier ones.
         self.excluded_wallets: dict[str, str] = excluded if excluded is not None else {}
 
     def with_engine(self, engine: SignalEngine) -> HistoricalSignalSource:
@@ -153,8 +154,6 @@ class HistoricalSignalSource:
         start = view.t_ms - self._lookback_ms
         accepted = []
         for record in view.records:
-            if record.address in self.excluded_wallets:
-                continue
             fills = view.fills_between(record.address, start, view.t_ms)
             traded = frozenset(f.symbol for f in fills if f.symbol in self._equities)
             try:
@@ -168,7 +167,7 @@ class HistoricalSignalSource:
                     raw_score=view.score(record),
                 )
             except AdapterError as exc:
-                self.excluded_wallets[record.address] = str(exc)
+                self.excluded_wallets.setdefault(record.address, str(exc))
                 continue
             if self._wallet_chain.evaluate(wallet) is None:
                 accepted.append(_Accepted(self._scorer.score(wallet), wallet))

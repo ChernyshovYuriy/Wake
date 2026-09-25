@@ -142,3 +142,29 @@ def test_a_wallet_with_uninterpretable_history_is_excluded_not_fatal() -> None:
     assert aaa.n_wallets == 3  # the three good wallets still count
     assert broken in src.excluded_wallets
     assert "unknown fill dir 'Mystery Direction'" in src.excluded_wallets[broken]
+
+
+def test_a_future_uninterpretable_fill_does_not_leak_into_earlier_views() -> None:
+    """Exclusion is decided per view from fills <= t, so evaluation order cannot matter:
+    a wallet whose bad fill comes after t is still used at t, even when a later view (which
+    sees the bad fill) was built first, including through with_engine."""
+    wallet = WALLETS[0]
+    later_ms = AS_OF_MS + 6 * MS_PER_DAY
+    bad = replace(
+        make_fill(symbol=AAA, sz=D(1), time_ms=AS_OF_MS + 5 * MS_PER_DAY),
+        wallet=wallet,
+        dir="Mystery Direction",
+    )
+    base = data()
+    d = dataclasses.replace(base, fills={**base.fills, wallet: (*base.fills[wallet], bad)})
+
+    def wallets_at(src: HistoricalSignalSource, t_ms: int) -> set[str]:
+        return {w for inputs in src.inputs_at(d.at(t_ms)) for w in inputs.wallets}
+
+    src = source()
+    assert wallet not in wallets_at(src, later_ms)  # the bad fill is visible here
+    assert wallet in src.excluded_wallets
+    assert wallet in wallets_at(src, AS_OF_MS)  # ...but not yet at AS_OF
+    assert wallet in wallets_at(
+        src.with_engine(build_signal_engine(SignalSettings())), AS_OF_MS - MS_PER_DAY
+    )

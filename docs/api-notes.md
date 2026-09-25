@@ -131,8 +131,11 @@ the 62k-fill sample above. Liquidations are forced closes (a long is sold: -, a 
 bought: +). `Liquidated Isolated Long|Short` and `Liquidated Cross Long|Short` are now mapped.
 Only the first was observed; the side cross-check guards all four, and any other
 `Liquidated ...` shape still raises. The same run showed a second problem: one
-uninterpretable wallet aborted the whole backtest. The backtest now excludes such a wallet
-and reports it in the caveats, as the live pipeline already did per wallet.
+uninterpretable wallet aborted the whole backtest. The backtest now leaves such a wallet
+out of every session whose lookback holds the bad fill, and reports it in the caveats, as
+the live pipeline already did per wallet. The decision is made per session from the fills
+visible then. (A first version remembered the exclusion across sessions, which leaked a
+later fill into earlier sessions; see AUDIT.md F3-1.)
 
 ## 5. Pagination and history caps (`userFillsByTime`)
 
@@ -320,6 +323,11 @@ and reports it in the caveats, as the live pipeline already did per wallet.
   calendar) as values, because the layer rules forbid `signals` from importing `session`.
 - `TickerInputs` rejects positions/fills from wallets that were not scored, or for another
   symbol (fail loud instead of silently mixing inputs).
+- **Corroboration window** (fix, AUDIT.md F4-1): a wallet counts as involved in a ticker if
+  it holds a non-zero position now, or traded it in (as_of - `corroboration_window_hours`,
+  as_of], the same half-open rule as the flow window. Before this fix, a trade anywhere in
+  the 90-day scoring history counted. Three flat wallets that last traded 60 days ago could
+  then "corroborate" a signal made only of the overnight price move.
 - **PLAN CHANGE: combined score is normalized**: `sum(w*c) / sum(w)`, in [-1, 1], so
   epsilon (default 0.05) means the same whatever the weights.
 - Overnight component uses the log return from the last 1h candle closed by the cash close

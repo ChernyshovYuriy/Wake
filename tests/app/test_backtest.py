@@ -231,4 +231,4 @@ def test_excluded_wallets_are_reported_in_the_caveats() -> None:
         walk_forward=False,
     )
     assert report.single.trades  # the good wallets still trade
-    assert any("1 wallets excluded" in c and "Mystery Direction" in c for c in report.caveats)
+    assert any("1 wallets left out" in c and "Mystery Direction" in c for c in report.caveats)

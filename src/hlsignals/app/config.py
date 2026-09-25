@@ -101,6 +101,7 @@ class SignalSettings:
         default_factory=lambda: MappingProxyType({"tilt": 1.0, "flow": 1.0, "overnight": 0.5})
     )
     flow_window_hours: float = 24.0
+    corroboration_window_hours: float = 24.0  # a flat wallet counts only if it traded this recently
     min_flow_oi_frac: float = 0.02
     flow_full_scale_oi_frac: float = 0.10  # flow of 10% of OI -> full-strength component
     min_overnight: float = 0.003

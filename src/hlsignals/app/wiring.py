@@ -184,7 +184,9 @@ def build_signal_engine(settings: SignalSettings) -> SignalEngine:
     try:
         return SignalEngine(
             features,
-            Corroboration(settings.min_wallets, settings.min_trust),
+            Corroboration(
+                settings.min_wallets, settings.min_trust, settings.corroboration_window_hours
+            ),
             WeightedCombiner(settings.weights, settings.epsilon),
             FlagThresholds(settings.thin_volume_usd, settings.weak_confidence),
         )

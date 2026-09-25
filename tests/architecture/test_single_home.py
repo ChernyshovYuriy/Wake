@@ -16,7 +16,15 @@ SRC = Path(__file__).parents[2] / "src" / "hlsignals"
 CLOCK = "core/clock.py"
 SYMBOLS = "domain/symbols.py"
 DIRECTION = "domain/direction.py"
-PURE_PACKAGES = ("core/", "domain/", "signals/", "wallets/scoring/", "wallets/filters/", "session/")
+# Package prefixes ("x/") or single modules ("x.py"); each must match a real source file.
+PURE_PACKAGES = (
+    "core/",
+    "domain/",
+    "signals/",
+    "wallets/scoring/",
+    "wallets/filters.py",
+    "session/",
+)
 IO_MODULES = frozenset(
     {"httpx", "requests", "socket", "urllib", "sqlite3", "websockets", "io", "shutil", "subprocess"}
 )
@@ -183,3 +191,9 @@ def test_symbol_rule_ignores_unrelated_colons() -> None:
 
 def test_sources_found() -> None:
     assert any(path == CLOCK for path, _ in sources())
+
+
+@pytest.mark.parametrize("entry", PURE_PACKAGES)
+def test_every_pure_entry_matches_a_source(entry: str) -> None:
+    """A pure entry that matches no file silently exempts that code from the I/O rule."""
+    assert any(path.startswith(entry) for path, _ in sources())
