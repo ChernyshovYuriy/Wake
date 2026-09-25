@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from collections.abc import Callable, Sequence
+from typing import Any
 
 import pytest
 
@@ -15,7 +16,15 @@ from hlsignals.wallets.filters import (
     prescreen_fill_rate,
     wallet_filter_chain,
 )
-from tests.factories import NVDA, T0_MS, make_candle_series, make_equity_slice, make_trips
+from hlsignals.wallets.scoring.slice import EquitySlice
+from tests.factories import (
+    AAPL,
+    NVDA,
+    T0_MS,
+    make_candle_series,
+    make_equity_slice,
+    make_trips,
+)
 
 SWING = make_equity_slice(make_trips([0.02, -0.01, 0.03, 0.01, -0.02], hold_ms=3 * MS_PER_DAY))
 
@@ -100,40 +109,106 @@ def hourly(closes: Sequence[float]) -> Candles:
     return {NVDA: make_candle_series(list(closes), step_ms=MS_PER_HOUR)}
 
 
-def bait_history(reverses: bool, trips: int = 4) -> tuple[list[Fill], Candles]:
-    """Long trips held 2h; price rises into each exit, then falls 5% (or keeps rising)."""
-    cycle = 48  # hours per trip cycle
-    fills = make_trips([0.02] * trips, hold_ms=2 * MS_PER_HOUR, gap_ms=(cycle - 2) * MS_PER_HOUR)
+CYCLE_H = 48  # hours per trip cycle
+
+
+def bait_history(
+    pattern: Sequence[bool], *, side: str = "long", move: float = 0.05, hold_h: int = 2
+) -> tuple[list[Fill], Candles]:
+    """One trip per 48h cycle, held ``hold_h`` hours; the price is flat at 100 up to each exit,
+    then moves by ``move`` against the trip (a reversal) where ``pattern[i]``, else with it."""
+    sign = 1 if side == "long" else -1
+    fills = make_trips(
+        [0.02] * len(pattern),
+        side=side,
+        hold_ms=hold_h * MS_PER_HOUR,
+        gap_ms=(CYCLE_H - hold_h) * MS_PER_HOUR,
+    )
     closes: list[float] = []
-    for _ in range(trips):
-        closes += [100.0, 101.0, 102.0]  # entry .. exit
-        after = 96.9 if reverses else 104.0
-        closes += [after] * (cycle - 3)
+    for reverses in pattern:
+        after = 100.0 * (1 + (-sign if reverses else sign) * move)
+        closes += [100.0] * hold_h + [after] * (CYCLE_H - hold_h)
     return fills, hourly(closes)
 
 
+def after_cycles(n: int) -> int:
+    """An as_of by which every one of n trips' windows has ended."""
+    return T0_MS + n * CYCLE_H * MS_PER_HOUR
+
+
+def bait_slice(pattern: Sequence[bool], **kwargs: Any) -> EquitySlice:
+    fills, candles = bait_history(pattern, **kwargs)
+    return make_equity_slice(fills, candles=candles, as_of_ms=after_cycles(len(pattern)))
+
+
 def test_entries_that_precede_reversals_are_flagged() -> None:
-    fills, candles = bait_history(reverses=True)
-    s = make_equity_slice(fills, candles=candles, as_of_ms=T0_MS + 4 * 48 * MS_PER_HOUR)
-    verdict = BAIT.apply(s)
+    verdict = BAIT.apply(bait_slice([True] * 4))
     assert not verdict.accepted
-    assert "reversed after" in verdict.reason
+    assert verdict.reason == "4/4 quick trips reversed after exit (100% > 50%)"
 
 
 def test_trips_followed_by_continuation_are_kept() -> None:
-    fills, candles = bait_history(reverses=False)
-    s = make_equity_slice(fills, candles=candles, as_of_ms=T0_MS + 4 * 48 * MS_PER_HOUR)
-    assert BAIT.apply(s).accepted
+    assert BAIT.apply(bait_slice([False] * 4)).accepted
+
+
+def test_short_trips_followed_by_a_rise_are_flagged() -> None:
+    verdict = BAIT.apply(bait_slice([True] * 4, side="short"))
+    assert not verdict.accepted
+    assert verdict.reason.startswith("4/4 ")
+    assert BAIT.apply(bait_slice([False] * 4, side="short")).accepted  # price kept falling
+
+
+@pytest.mark.parametrize("side", ["long", "short"])
+def test_a_move_against_the_trip_smaller_than_min_move_is_not_a_reversal(side: str) -> None:
+    assert BAIT.apply(bait_slice([True] * 4, side=side, move=0.015)).accepted  # < 0.02
+
+
+@pytest.mark.parametrize("side", ["long", "short"])
+def test_a_move_of_exactly_min_move_is_a_reversal(side: str) -> None:
+    exact = ReversalBaitFilter(
+        window_hours=WINDOW_H, min_events=3, max_reversal_rate=0.5, min_move=0.25
+    )
+    assert not exact.apply(bait_slice([True] * 4, side=side, move=0.25)).accepted
+
+
+def test_a_reversal_rate_equal_to_the_maximum_is_accepted() -> None:
+    assert BAIT.apply(bait_slice([True, False] * 3)).accepted  # 3/6 = 50%
+    verdict = BAIT.apply(bait_slice([True, True, False, True, False, True]))  # 4/6
+    assert not verdict.accepted
+    assert verdict.reason == "4/6 quick trips reversed after exit (67% > 50%)"
+
+
+def test_unevaluable_trips_in_the_middle_do_not_stop_the_evaluation() -> None:
+    """Between NVDA bait trips: an AAPL trip held longer than the window, and one with no
+    AAPL price at its exit (candles start later). Both are skipped; later trips still count."""
+    fills, candles = bait_history([True] * 4)
+    held_too_long = make_trips(
+        [0.02], symbol=AAPL, hold_ms=30 * MS_PER_HOUR, t0_ms=T0_MS + 50 * MS_PER_HOUR
+    )
+    no_ref_price = make_trips(
+        [0.02], symbol=AAPL, hold_ms=2 * MS_PER_HOUR, t0_ms=T0_MS + 82 * MS_PER_HOUR
+    )
+    aapl = make_candle_series([100.0] * 40, symbol=AAPL, t0_ms=T0_MS + 85 * MS_PER_HOUR)
+    s = make_equity_slice(
+        [*fills, *held_too_long, *no_ref_price],
+        candles={**candles, AAPL: aapl},
+        as_of_ms=after_cycles(4),
+    )
+    verdict = BAIT.apply(s)
+    assert not verdict.accepted
+    assert verdict.reason.startswith("4/4 ")  # the two AAPL trips are not evaluable
+
+
+def test_a_trip_held_exactly_the_window_is_evaluated() -> None:
+    assert not BAIT.apply(bait_slice([True] * 4, hold_h=int(WINDOW_H))).accepted
 
 
 def test_too_few_evaluable_events_is_not_enough_evidence() -> None:
-    fills, candles = bait_history(reverses=True, trips=2)
-    s = make_equity_slice(fills, candles=candles, as_of_ms=T0_MS + 2 * 48 * MS_PER_HOUR)
-    assert BAIT.apply(s).accepted
+    assert BAIT.apply(bait_slice([True] * 2)).accepted
 
 
 def test_events_without_prices_are_not_evaluable() -> None:
-    fills, _ = bait_history(reverses=True)
+    fills, _ = bait_history([True] * 4)
     assert BAIT.apply(make_equity_slice(fills)).accepted
 
 
@@ -141,11 +216,13 @@ def test_events_whose_window_ends_after_as_of_are_not_evaluable() -> None:
     strict = ReversalBaitFilter(
         window_hours=WINDOW_H, min_events=4, max_reversal_rate=0.5, min_move=0.02
     )
-    fills, candles = bait_history(reverses=True)
-    full = make_equity_slice(fills, candles=candles, as_of_ms=T0_MS + 4 * 48 * MS_PER_HOUR)
-    assert not strict.apply(full).accepted  # all 4 exits evaluable
-    at_last_exit = make_equity_slice(fills, candles=candles, as_of_ms=max(f.time_ms for f in fills))
-    assert strict.apply(at_last_exit).accepted  # the last exit's window is in the future
+    fills, candles = bait_history([True] * 4)
+    last_exit = max(f.time_ms for f in fills)
+    window_ms = int(WINDOW_H * MS_PER_HOUR)
+    ends_at_as_of = make_equity_slice(fills, candles=candles, as_of_ms=last_exit + window_ms)
+    assert not strict.apply(ends_at_as_of).accepted  # all 4 windows ended by as_of
+    ends_after = make_equity_slice(fills, candles=candles, as_of_ms=last_exit + window_ms - 1)
+    assert strict.apply(ends_after).accepted  # the last window ends 1 ms after as_of
 
 
 def test_long_holds_are_not_bait_candidates() -> None:
