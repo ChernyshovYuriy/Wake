@@ -3,7 +3,7 @@ from __future__ import annotations
 import dataclasses
 from collections.abc import Iterator
 from dataclasses import dataclass
-from datetime import UTC, date, datetime
+from datetime import UTC, date, datetime, timedelta
 
 from hlsignals.app.backtest import STANDING_CAVEATS, LoadedHistory, load_history, run_backtest
 from hlsignals.app.config import Settings, UniverseSettings
@@ -101,6 +101,55 @@ def test_walk_forward_without_a_fold_falls_back_to_the_single_pass_and_says_so()
     assert report.walk_forward is None
     assert report.basis()[2] == "in-sample, configured parameters"
     assert any("walk-forward skipped: 10 sessions, at least 11 needed" in c for c in report.caveats)
+
+
+def test_prior_scores_dated_after_the_start_are_reported() -> None:
+    """A curated score without as_of is dated at load time: hidden from every past session by
+    the look-ahead guard, which the report must say instead of silently ignoring it."""
+    _, prices = market()
+    late = LoadedHistory(scenario.data(score_as_of_days=30), prices, ())
+    start = scenario.DAY
+    report = run_backtest(
+        settings=settings(),
+        loaded=late,
+        calendar=CALENDAR,
+        equities=frozenset(SYMBOLS),
+        start=start,
+        end=start,
+        walk_forward=False,
+    )
+    assert (
+        f"3 wallets' prior scores are dated after {start}: not used in sessions before their "
+        "date (a curated entry without as_of is dated when loaded)"
+    ) in report.caveats
+    on_time = run_backtest(
+        settings=settings(),
+        loaded=loaded(),
+        calendar=CALENDAR,
+        equities=frozenset(SYMBOLS),
+        start=start,
+        end=start,
+        walk_forward=False,
+    )
+    assert not any("prior scores" in c for c in on_time.caveats)
+
+
+def test_a_period_without_sessions_reports_no_trades_and_no_prior_score_caveat() -> None:
+    saturday = next(
+        d for d in (scenario.DAY + timedelta(days=i) for i in range(7)) if d.weekday() == 5
+    )
+    _, prices = market()
+    report = run_backtest(
+        settings=settings(),
+        loaded=LoadedHistory(scenario.data(score_as_of_days=30), prices, ()),
+        calendar=CALENDAR,
+        equities=frozenset(SYMBOLS),
+        start=saturday,
+        end=saturday,
+        walk_forward=False,
+    )
+    assert report.single.trades == ()
+    assert not any("prior scores" in c for c in report.caveats)
 
 
 # --- load_history -------------------------------------------------------------------------------

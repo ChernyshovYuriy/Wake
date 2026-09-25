@@ -55,11 +55,22 @@ def _guarded_getaddrinfo(host: object, *args: object, **kwargs: object) -> list[
     raise _blocked(host)  # name resolution is network I/O too
 
 
+Guard = tuple[object, str, object]  # (owner, attribute, replacement)
+GUARDS: tuple[Guard, ...] = (
+    (socket.socket, "connect", _guarded_connect),
+    (socket.socket, "connect_ex", _guarded_connect_ex),
+    (socket, "getaddrinfo", _guarded_getaddrinfo),
+)
+
+
+def network_guards(node: pytest.Item) -> tuple[Guard, ...]:
+    """What to patch for a test: everything, unless it is marked live."""
+    return () if node.get_closest_marker("live") is not None else GUARDS
+
+
 @pytest.fixture(autouse=True)
 def _no_network(request: pytest.FixtureRequest, monkeypatch: pytest.MonkeyPatch) -> None:
     """Every test except @pytest.mark.live runs with internet sockets and DNS blocked.
     Local AF_UNIX sockets (asyncio's self-pipe, socketpair) keep working."""
-    if request.node.get_closest_marker("live") is None:
-        monkeypatch.setattr(socket.socket, "connect", _guarded_connect)
-        monkeypatch.setattr(socket.socket, "connect_ex", _guarded_connect_ex)
-        monkeypatch.setattr(socket, "getaddrinfo", _guarded_getaddrinfo)
+    for owner, name, replacement in network_guards(request.node):
+        monkeypatch.setattr(owner, name, replacement)

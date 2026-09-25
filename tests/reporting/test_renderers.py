@@ -38,7 +38,7 @@ SNAPSHOTS = Path(__file__).parent / "snapshots"
 def test_snapshot(name: str, renderer: Renderer) -> None:
     path = SNAPSHOTS / name
     rendered = renderer.render(sample_report())
-    if os.environ.get("UPDATE_SNAPSHOTS"):
+    if os.environ.get("UPDATE_SNAPSHOTS"):  # pragma: no cover - regenerating, not testing
         path.write_text(rendered)
     assert rendered == path.read_text()
 

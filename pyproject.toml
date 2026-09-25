@@ -38,9 +38,14 @@ markers = ["live: hits the real Hyperliquid API (excluded by default)"]
 
 [tool.coverage.run]
 branch = true
-source = ["hlsignals"]
+# Tests are measured too, so a dead helper or an unused fake branch shows up (AUDIT.md B-3).
+# Live tests only run with -m live.
+source = ["hlsignals", "tests"]
+omit = ["tests/live/*"]
 
 [tool.coverage.report]
+# Test tripwires: fakes that raise because they must never be called.
+exclude_also = ["raise AssertionError"]
 show_missing = true
 skip_covered = true
 

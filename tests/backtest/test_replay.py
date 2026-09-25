@@ -3,6 +3,7 @@ from __future__ import annotations
 import logging
 import math
 import statistics
+from dataclasses import replace
 from datetime import date
 
 import pytest
@@ -10,6 +11,7 @@ import pytest
 from hlsignals.backtest.costs import BpsCostModel
 from hlsignals.backtest.prices import PriceBook
 from hlsignals.backtest.replay import Replay, ReplayResult, SignalSource
+from hlsignals.core.clock import to_ms
 from hlsignals.core.errors import ConfigError, LookAheadError
 from hlsignals.domain.models import DailyBar, SignalDirection, SignalStatus, TickerSignal
 from tests.backtest.synthetic import (
@@ -66,20 +68,35 @@ def test_look_ahead_attempt_fails_loudly() -> None:
         replay(CheatingSource()).run(replay_days(3))
 
 
+DAY_30 = SESSIONS[30]
+
+
+def test_momentum_needs_six_sessions_of_history() -> None:
+    data, _ = market()
+    early = data.at(to_ms(CALENDAR.sessions(SESSIONS[3], SESSIONS[3])[0].open))
+    assert MomentumSource().signals_at(early) == []
+
+
+def test_momentum_is_silent_when_the_price_did_not_move() -> None:
+    data, _ = market()
+    flat = {
+        s: tuple(replace(c, open=100.0, high=100.0, low=100.0, close=100.0) for c in cs)
+        for s, cs in data.candles.items()
+    }
+    view = replace(data, candles=flat).at(to_ms(CALENDAR.sessions(DAY_30, DAY_30)[0].open))
+    assert MomentumSource().signals_at(view) == []
+
+
 DAY = SESSIONS[20]
 EXIT = day_after(DAY, HORIZON - 1)
 AAA = SYMBOLS[0]
 
 
-def book(**overrides: tuple[float, float] | None) -> PriceBook:
-    """AAA: open 100 on DAY, close 110 on EXIT; ``overrides`` replace or drop those bars."""
+def book(missing: str | None = None) -> PriceBook:
+    """AAA: open 100 on DAY, close 110 on EXIT; ``missing`` ("entry" / "exit") drops that bar."""
     rows = {DAY: (100.0, 101.0), EXIT: (108.0, 110.0), SESSIONS[-1]: (120.0, 120.0)}
-    for key, value in overrides.items():
-        target = DAY if key == "entry" else EXIT
-        if value is None:
-            rows.pop(target)
-        else:
-            rows[target] = value
+    if missing is not None:
+        rows.pop(DAY if missing == "entry" else EXIT)
     return PriceBook({"AAA": [DailyBar("AAA", d, o, c) for d, (o, c) in rows.items()]})
 
 
@@ -109,7 +126,7 @@ def test_costs_reduce_returns_exactly_by_modelled_bps() -> None:
 
 @pytest.mark.parametrize("missing", ["entry", "exit"])
 def test_missing_stock_bars_are_skipped_and_counted(missing: str) -> None:
-    result = one_trade(SignalDirection.LONG, prices=book(**{missing: None}))
+    result = one_trade(SignalDirection.LONG, prices=book(missing))
     assert result.trades == ()
     assert result.skipped == {"missing stock bars": 1}
 

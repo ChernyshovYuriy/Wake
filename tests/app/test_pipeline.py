@@ -69,7 +69,7 @@ def report() -> SignalReport:
 
 def test_snapshot_is_deterministic() -> None:
     rendered = JsonRenderer().render(report())
-    if os.environ.get("UPDATE_SNAPSHOTS"):
+    if os.environ.get("UPDATE_SNAPSHOTS"):  # pragma: no cover - regenerating, not testing
         SNAPSHOT.write_text(rendered)
     assert rendered == SNAPSHOT.read_text()
     assert JsonRenderer().render(report()) == rendered

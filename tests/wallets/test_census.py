@@ -6,7 +6,7 @@ import pytest
 
 from hlsignals.domain.models import TapeTrade
 from hlsignals.wallets.census.recorder import CensusRecorder
-from hlsignals.wallets.census.registry import InMemoryRegistry
+from hlsignals.wallets.census.registry import InMemoryRegistry, WalletObservation
 from hlsignals.wallets.census.tape import TapeSubject
 from tests.factories import BTC, NVDA, OTHER_WALLET, WALLET, make_tape_trade
 
@@ -67,8 +67,11 @@ def recorder(capacity: int = 100) -> tuple[CensusRecorder, InMemoryRegistry]:
 def test_recorder_upserts_both_counterparties() -> None:
     rec, registry = recorder()
     rec.on_trade(make_tape_trade(time_ms=7))
-    assert registry.get(WALLET) is not None
-    assert registry.get(OTHER_WALLET) is not None
+    rec.on_trade(make_tape_trade(time_ms=9))
+    for address in (WALLET, OTHER_WALLET):
+        assert registry.get(address) == WalletObservation(
+            address, first_seen_ms=7, last_seen_ms=9, n_fills=2
+        )
 
 
 def test_recorder_ignores_untracked_symbols() -> None:

@@ -34,7 +34,7 @@ from hlsignals.core.clock import MS_PER_HOUR, to_ms
 from hlsignals.core.errors import AdapterError, TransportError
 from hlsignals.domain.models import Candle, DailyBar, Fill, MarketCtx, WalletRecord
 from hlsignals.domain.symbols import Symbol
-from hlsignals.session.calendar import SessionCalendar
+from hlsignals.session.calendar import Session, SessionCalendar
 from hlsignals.universe.discovery import EquityDexLocator
 from hlsignals.wallets.sources.base import WalletSourcePort
 
@@ -189,7 +189,8 @@ def run_backtest(
     walk_forward: bool,
 ) -> BacktestReport:
     bt = settings.backtest
-    days = [s.day for s in calendar.sessions(start, end)]
+    sessions = calendar.sessions(start, end)
+    days = [s.day for s in sessions]
     logger.info("replaying %d sessions%s", len(days), " with walk-forward" if walk_forward else "")
     source = HistoricalSignalSource(
         equities=equities,
@@ -252,5 +253,27 @@ def run_backtest(
         parameters=str(configured),
         single=single,
         walk_forward=wf,
-        caveats=(*STANDING_CAVEATS, *loaded.notes, *exclusion, *skipped),
+        caveats=(
+            *STANDING_CAVEATS,
+            *loaded.notes,
+            *exclusion,
+            *skipped,
+            *_late_prior_scores(loaded, sessions, bt.preopen_minutes, start),
+        ),
     )
+
+
+def _late_prior_scores(
+    loaded: LoadedHistory, sessions: Sequence[Session], preopen_minutes: float, start: date
+) -> list[str]:
+    """Prior scores the look-ahead guard hides at the first session: say so, don't hide it."""
+    if not sessions:
+        return []
+    first_view = sessions[0].open - timedelta(minutes=preopen_minutes)
+    late = [r for r in loaded.data.records if r.raw_score is not None and r.as_of > first_view]
+    if not late:
+        return []
+    return [
+        f"{len(late)} wallets' prior scores are dated after {start}: not used in sessions before "
+        "their date (a curated entry without as_of is dated when loaded)"
+    ]

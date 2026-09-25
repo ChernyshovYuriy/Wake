@@ -24,7 +24,7 @@ from hlsignals.domain.symbols import Symbol
 from hlsignals.reporting.evidence import fmt_evidence
 from hlsignals.wallets.filters import prescreen_fill_rate
 from hlsignals.wallets.scoring.scorer import WalletScorer
-from hlsignals.wallets.scoring.slice import EquitySlice
+from hlsignals.wallets.scoring.slice import EquitySlice, equity_fills
 
 logger = logging.getLogger(__name__)
 _PROGRESS_EVERY = 10
@@ -78,7 +78,7 @@ def fetch_history(
     fills = iter(history)
     head = list(islice(fills, prescreen.page_size)) if prescreen else []
     if prescreen and len(head) == prescreen.page_size:
-        sample = [f for f in head if f.symbol in equities]
+        sample = equity_fills(head, equities)
         verdict = prescreen_fill_rate(sample, prescreen.max_fills_per_day)
         if not verdict.accepted:
             return Prescreened(verdict.reason, len(sample))

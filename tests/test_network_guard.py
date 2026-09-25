@@ -4,11 +4,12 @@ from __future__ import annotations
 
 import asyncio
 import socket
+from pathlib import Path
 
 import httpx
 import pytest
 
-from tests.conftest import NetworkBlockedError
+from tests.conftest import GUARDS, NetworkBlockedError, network_guards
 
 TEST_NET = ("192.0.2.1", 443)  # RFC 5737 documentation address: never routable
 
@@ -58,3 +59,28 @@ def test_local_socket_pairs_still_work() -> None:
 def test_name_resolution_is_blocked() -> None:
     with pytest.raises(NetworkBlockedError):
         socket.getaddrinfo("api.hyperliquid.xyz", 443)
+
+
+def test_local_unix_socket_connections_still_work(tmp_path: Path) -> None:
+    path = str(tmp_path / "s")
+    with socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) as server:
+        server.bind(path)
+        server.listen()
+        with socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) as client:
+            client.connect(path)
+        with socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) as client:
+            assert client.connect_ex(path) == 0
+
+
+class _Node:
+    def __init__(self, live: bool) -> None:
+        self.live = live
+
+    def get_closest_marker(self, name: str) -> object | None:
+        return object() if self.live and name == "live" else None
+
+
+def test_live_tests_are_exempt_and_others_are_guarded(request: pytest.FixtureRequest) -> None:
+    assert network_guards(request.node) == GUARDS
+    assert network_guards(_Node(live=True)) == ()  # type: ignore[arg-type]
+    assert network_guards(_Node(live=False)) == GUARDS  # type: ignore[arg-type]

@@ -25,6 +25,12 @@ def fills_per_active_day(fills: Sequence[Fill]) -> float:
     return len(fills) / len(days) if days else 0.0
 
 
+def equity_fills(fills: Iterable[Fill], equities: frozenset[Symbol]) -> list[Fill]:
+    """The fills on equity symbols, in their original order: the single place a wallet's
+    history is restricted to the universe (IMPLEMENTATION_PLAN.md §5)."""
+    return [f for f in fills if f.symbol in equities]
+
+
 @dataclass(frozen=True, slots=True)
 class EquitySlice:
     address: str
@@ -50,7 +56,7 @@ class EquitySlice:
         raw_score: float | None = None,
         truncated: bool = False,
     ) -> EquitySlice:
-        kept = tuple(f for f in fills if f.symbol in equities and f.time_ms <= as_of_ms)
+        kept = tuple(f for f in equity_fills(fills, equities) if f.time_ms <= as_of_ms)
         book = LotBook()
         book.add_all(kept)
         return cls(

@@ -38,7 +38,7 @@ from hlsignals.domain.symbols import Symbol
 from hlsignals.session.calendar import SessionCalendar
 from hlsignals.signals.engine import SignalEngine
 from hlsignals.signals.inputs import TickerInputs
-from hlsignals.wallets.scoring.slice import EquitySlice
+from hlsignals.wallets.scoring.slice import EquitySlice, equity_fills
 
 _DAY_MS = MS_PER_DAY
 
@@ -155,7 +155,7 @@ class HistoricalSignalSource:
         accepted = []
         for record in view.records:
             fills = view.fills_between(record.address, start, view.t_ms)
-            traded = frozenset(f.symbol for f in fills if f.symbol in self._equities)
+            traded = frozenset(f.symbol for f in equity_fills(fills, self._equities))
             try:
                 wallet = EquitySlice.from_history(
                     record.address,

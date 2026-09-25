@@ -133,7 +133,7 @@ class ShuffledSource:
 class CheatingSource:
     def signals_at(self, view: AsOfView) -> Sequence[TickerSignal]:
         view.candles_between(SYMBOLS[0], view.t_ms, view.t_ms + 5 * 24 * MS_PER_HOUR)
-        return []
+        raise AssertionError("unreachable: the view refuses to read past t")
 
 
 class FixedSource:

@@ -184,9 +184,7 @@ class Ws:
         self.sent.append(text)
 
     def recv(self, timeout: float) -> str:
-        if not self.messages:
-            raise TimeoutError
-        return self.messages.pop(0)
+        return self.messages.pop(0)  # the census deadline ends the run before they run out
 
 
 def test_census_records_tracked_trades(

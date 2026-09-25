@@ -232,7 +232,11 @@ def test_prescreen_skipped_for_partial_first_page() -> None:
     (result,) = vetter(gateway, Prescreen(page_size=100, max_fills_per_day=1.0)).vet_all(
         [make_wallet_record()], NOW
     )
-    assert result.scored is not None  # judged by the full filter chain instead
+    # Not stopped by the prescreen: every fill is read and the full chain judges the wallet.
+    assert gateway.histories[0].consumed == 20
+    assert result.rejection is not None
+    assert result.rejection[0] == "min_sample"  # the chain's first filter; 10 trips are too few
+    assert not result.rejection[1].startswith("prescreen")
 
 
 def test_progress_logged_every_ten_wallets(caplog: pytest.LogCaptureFixture) -> None:

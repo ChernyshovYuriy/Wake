@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from dataclasses import replace
 from decimal import Decimal
+from itertools import pairwise
 
 import pytest
 from hypothesis import given
@@ -12,7 +13,20 @@ from hlsignals.core.errors import NonPerpFillError
 from hlsignals.domain.direction import signed_size
 from hlsignals.domain.lots import LotBook
 from hlsignals.domain.models import Fill, PositionSide
-from tests.factories import AAPL, BTC, HOUR_MS, NVDA, T0_MS, D, make_fill, make_fills, mirror
+from hlsignals.infra.adapters import adapt_fills
+from tests.conftest import load_fixture
+from tests.factories import (
+    AAPL,
+    BTC,
+    HOUR_MS,
+    NVDA,
+    T0_MS,
+    WALLET,
+    D,
+    make_fill,
+    make_fills,
+    mirror,
+)
 
 
 def book_of(*fill_lists: list[Fill]) -> LotBook:
@@ -313,3 +327,56 @@ def test_round_trip_pnl_sums_to_closed_lot_pnl_when_flat(
         lots = sum((lot.realized_pnl or Decimal(0) for lot in book.closed_lots), Decimal(0))
         assert trips == lots
     assert all(t.entry_notional is None or t.entry_notional > 0 for t in book.round_trips)
+
+
+# --- against real captured fills (tests/fixtures/hl/fills_heavy_page*.json) ---------------------
+
+
+def real_fills() -> list[Fill]:
+    """Two consecutive 2000-fill pages of one wallet; page 2 repeats page 1's last fill."""
+    page1, page2 = (load_fixture(f"fills_heavy_page{n}")["response"] for n in (1, 2))
+    return adapt_fills([*page1, *page2[1:]], WALLET)
+
+
+# The exchange computes closedPnl against an average entry rounded to price precision, so its
+# per-fill values drift from exact arithmetic (up to ~9e-5 per fill on xyz:BB; docs/api-notes.md
+# §3). Over a trip the drift stays far below a part per million of the capital put in.
+CLOSED_PNL_TOLERANCE = Decimal("1e-6")  # fraction of the trip's entry notional
+
+
+def test_fifo_pnl_agrees_with_the_api_closed_pnl_on_every_real_round_trip() -> None:
+    """Over a flat-to-flat trip FIFO and the exchange's average-cost closedPnl must agree (up to
+    the exchange's rounding). The closedPnl of the fill that *opens* a trip (a flip) belongs to
+    the trip it closed."""
+    fills = real_fills()
+    book = book_of(fills)
+    trips = [t for t in book.round_trips if not t.is_orphan]
+    assert trips  # 3 in this capture
+    for trip in trips:
+        opened = trip.open_ms
+        assert opened is not None  # not an orphan
+        closing = [
+            f for f in fills if f.symbol == trip.symbol and opened < f.time_ms <= trip.close_ms
+        ]
+        api = sum((f.closed_pnl for f in closing), Decimal(0))
+        assert trip.realized_pnl is not None
+        assert trip.entry_notional is not None
+        assert abs(trip.realized_pnl - api) <= CLOSED_PNL_TOLERANCE * trip.entry_notional
+
+
+def test_real_same_millisecond_fills_chain_in_api_order_not_tid_order() -> None:
+    """Why lots.py keeps feed order (plan §8 said tid): startPosition only chains in API order."""
+    raw = real_fills()
+    groups: dict[tuple[int, str], list[Fill]] = {}
+    for f in raw:
+        groups.setdefault((f.time_ms, str(f.symbol)), []).append(f)
+    shuffled = [g for g in groups.values() if [f.tid for f in g] != sorted(f.tid for f in g)]
+
+    def chains(group: list[Fill]) -> bool:
+        return all(
+            a.start_position + signed_size(a) == b.start_position for a, b in pairwise(group)
+        )
+
+    assert len(shuffled) >= 100  # 100 in this capture
+    assert all(chains(g) for g in shuffled)
+    assert not any(chains(sorted(g, key=lambda f: f.tid)) for g in shuffled)

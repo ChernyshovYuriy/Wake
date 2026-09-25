@@ -7,7 +7,7 @@ import pytest
 
 from hlsignals.core.clock import MS_PER_DAY
 from hlsignals.domain.models import Fill
-from hlsignals.wallets.scoring.slice import EquitySlice
+from hlsignals.wallets.scoring.slice import EquitySlice, equity_fills
 from tests.factories import AAPL, BTC, HOUR_MS, NVDA, T0_MS, WALLET, D, make_fills, make_position
 
 EQUITIES = frozenset({NVDA, AAPL})
@@ -47,6 +47,14 @@ def test_crypto_fills_and_positions_excluded_equity_kept() -> None:
     assert {f.symbol for f in s.fills} == {NVDA}
     assert [p.symbol for p in s.positions] == [NVDA]
     assert s.n_scored_trips == 1
+
+
+def test_equity_fills_keeps_only_equity_symbols_in_order() -> None:
+    crypto = make_fills([("Open Long", 1, 100)], symbol=BTC)
+    nvda = make_fills([("Open Long", 1, 100)], t0_ms=T0_MS + 1)
+    aapl = make_fills([("Open Short", 1, 50)], symbol=AAPL, t0_ms=T0_MS + 2)
+    assert equity_fills([*crypto, *nvda, *aapl], EQUITIES) == [*nvda, *aapl]
+    assert equity_fills(crypto, EQUITIES) == []
 
 
 def test_fills_after_as_of_are_ignored() -> None:
