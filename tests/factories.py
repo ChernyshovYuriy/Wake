@@ -46,12 +46,13 @@ def make_fill(**overrides: Any) -> Fill:
     """A fill whose ``side`` follows its ``dir`` unless overridden."""
     direction = overrides.get("dir", "Open Long")
     tid = next(_tids)
+    side = overrides.get("side") or (Side.BUY if sign_of(direction) > 0 else Side.SELL)
     defaults: dict[str, Any] = {
         "wallet": WALLET,
         "symbol": NVDA,
         "px": D(100),
         "sz": D(1),
-        "side": Side.BUY if sign_of(direction) > 0 else Side.SELL,
+        "side": side,
         "dir": direction,
         "time_ms": T0_MS,
         "tid": tid,

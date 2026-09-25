@@ -79,6 +79,94 @@
    "time": 1790183948423,
    "twapId": null
   },
+  "Liquidated Cross Long": {
+   "closedPnl": "-17844.715584",
+   "coin": "ETH",
+   "crossed": false,
+   "dir": "Liquidated Cross Long",
+   "fee": "0.0",
+   "feeToken": "USDC",
+   "hash": "0x25a991ad10c40afd2723042c06865b0213bd0092abc729cfc9723cffcfc7e4e7",
+   "liquidation": {
+    "liquidatedUser": "0x886654db05fb94a595a3e9ed7e2c9ce64656271e",
+    "markPx": "4152.1",
+    "method": "backstop"
+   },
+   "oid": 170197296454,
+   "px": "4110.24",
+   "side": "A",
+   "startPosition": "38.0736",
+   "sz": "38.0736",
+   "tid": 788785453048790,
+   "time": 1758520815224,
+   "twapId": null
+  },
+  "Liquidated Cross Short": {
+   "closedPnl": "-16118.434188",
+   "coin": "BTC",
+   "crossed": false,
+   "dir": "Liquidated Cross Short",
+   "fee": "0.0",
+   "feeToken": "USDC",
+   "hash": "0x2fcf0e5d557e40a31f34041be75902010200fe7cb70a1c886f1bd735bb736bf5",
+   "liquidation": {
+    "liquidatedUser": "0x68dc4e4a157ef6a93d56ed0a25c157cb3171dbcd",
+    "markPx": "108558.0",
+    "method": "backstop"
+   },
+   "oid": 64727181325,
+   "px": "109253.0",
+   "side": "B",
+   "startPosition": "-1.99377",
+   "sz": "1.99377",
+   "tid": 360460124378339,
+   "time": 1737356081326,
+   "twapId": null
+  },
+  "Liquidated Isolated Long": {
+   "closedPnl": "-88.968375",
+   "coin": "xyz:BRENTOIL",
+   "crossed": false,
+   "dir": "Liquidated Isolated Long",
+   "fee": "0.0",
+   "feeToken": "USDC",
+   "hash": "0xe3764aaabb3f4a3fe4f00437987a57020d10009056326911873ef5fd7a33242a",
+   "liquidation": {
+    "liquidatedUser": "0xf09bc31983976740a3fb6415c349a2ed27400a09",
+    "markPx": "92.004",
+    "method": "backstop"
+   },
+   "oid": 358329350526,
+   "px": "92.466",
+   "side": "A",
+   "startPosition": "5.05",
+   "sz": "5.05",
+   "tid": 641851745370649,
+   "time": 1774264144105,
+   "twapId": null
+  },
+  "Liquidated Isolated Short": {
+   "closedPnl": "-61159.548584",
+   "coin": "CASHCAT",
+   "crossed": false,
+   "dir": "Liquidated Isolated Short",
+   "fee": "0.0",
+   "feeToken": "USDC",
+   "hash": "0x34b7d2faa021a0253631044188386802012200e03b24bef7d8807e4d5f257a0f",
+   "liquidation": {
+    "liquidatedUser": "0xa0373c932d2287dfca94beba76523da4f4f13941",
+    "markPx": "0.14947",
+    "method": "backstop"
+   },
+   "oid": 511026404458,
+   "px": "0.14164",
+   "side": "B",
+   "startPosition": "-621736.0",
+   "sz": "621736.0",
+   "tid": 33209834077443,
+   "time": 1785970540583,
+   "twapId": null
+  },
   "Long > Short": {
    "cloid": "0x0000000000000000617d6ab3542700ef",
    "closedPnl": "-0.6509",

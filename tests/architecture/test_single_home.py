@@ -11,7 +11,7 @@ from pathlib import Path
 
 import pytest
 
-from hlsignals.domain.direction import NON_PERP_DIRS, PERP_DIR_SIGN
+from hlsignals.domain.direction import FORCED_CLOSE_DIRS, NON_PERP_DIRS, PERP_DIR_SIGN
 
 SRC = Path(__file__).parents[2] / "src" / "hlsignals"
 CLOCK = "core/clock.py"
@@ -92,7 +92,7 @@ FORBIDDEN_TIME = frozenset(
         "asyncio.sleep",
     }
 )
-DIR_LITERALS = frozenset(PERP_DIR_SIGN) | NON_PERP_DIRS
+DIR_LITERALS = frozenset(PERP_DIR_SIGN) | NON_PERP_DIRS | FORCED_CLOSE_DIRS
 SPLITTERS = frozenset({"split", "rsplit", "partition", "rpartition"})
 FINDERS = frozenset({"index", "rindex", "find", "rfind"})
 DEX_PREFIX = re.compile(r"[a-z0-9]+:")  # "xyz:" glued to a coin
@@ -102,6 +102,7 @@ SYMBOLS_RULE = "only domain/symbols.py builds/splits 'dex:coin'"
 CLOCK_RULE = "only core/clock.py reads the clock or sleeps"
 DIR_RULE = "only domain/direction.py interprets fill dir"
 IO_RULE = "pure packages perform no I/O"
+DIR_READ_RULE = "only domain/direction.py reads Fill.dir"
 
 Rule = Callable[[ast.AST], Iterator[str]]
 
@@ -239,6 +240,28 @@ def interprets_dir(tree: ast.AST) -> Iterator[str]:
             yield f"line {node.lineno}: dir fragment tested with 'in'"
 
 
+def reads_fill_dir(tree: ast.AST) -> Iterator[str]:
+    """``x.dir`` or ``getattr(x, "dir")`` read anywhere: dir is interpreted only by
+    domain/direction.py, which rejects unknown values. Code that reads dir itself could act on
+    a value nobody validated (AUDIT.md F1-3). Constructing a Fill (``dir=``) is not a read."""
+    for node in ast.walk(tree):
+        if (
+            isinstance(node, ast.Attribute)
+            and node.attr == "dir"
+            and isinstance(node.ctx, ast.Load)
+        ):
+            yield f"line {node.lineno}: .dir read"
+        elif (
+            isinstance(node, ast.Call)
+            and isinstance(node.func, ast.Name)
+            and node.func.id == "getattr"
+            and len(node.args) >= 2
+            and isinstance(node.args[1], ast.Constant)
+            and node.args[1].value == "dir"
+        ):
+            yield f"line {node.lineno}: getattr(..., 'dir')"
+
+
 def _is_dir_fragment(node: ast.AST) -> bool:
     return isinstance(node, ast.Constant) and (
         node.value in DIR_FRAGMENTS or node.value in DIR_LITERALS
@@ -310,6 +333,7 @@ RULES: dict[str, tuple[Rule, Callable[[str], bool]]] = {
     CLOCK_RULE: (reads_time, lambda p: p != CLOCK),
     SYMBOLS_RULE: (builds_symbol_strings, lambda p: p != SYMBOLS),
     DIR_RULE: (interprets_dir, lambda p: p != DIRECTION),
+    DIR_READ_RULE: (reads_fill_dir, lambda p: p != DIRECTION),
     "core imports stdlib only": (imports_non_stdlib, lambda p: p.startswith("core/")),
     IO_RULE: (does_io, lambda p: p.startswith(PURE_PACKAGES)),
 }
@@ -349,6 +373,9 @@ PLANTED = [
     (DIR_RULE, "x = 'Short' in d"),
     (DIR_RULE, "x = d.startswith('Liquidated')"),
     (DIR_RULE, "SIGN = {'Open ' + 'Long': 1}"),
+    (DIR_READ_RULE, "d = fill.dir"),
+    (DIR_READ_RULE, "n = sum(1 for f in fills if f.dir)"),
+    (DIR_READ_RULE, "d = getattr(fill, 'dir')"),
     ("core imports stdlib only", "import httpx"),
     (IO_RULE, "data = open('f').read()"),
     (IO_RULE, "from pathlib import Path\nx = Path('f').read_text()"),
@@ -376,6 +403,9 @@ CLEAN = [
     (DIR_RULE, "x = PositionSide.LONG"),
     (DIR_RULE, "x = name.startswith('Longest')"),
     (DIR_RULE, "x = 'Long' + ' term'"),
+    (DIR_READ_RULE, "fill = Fill(dir=raw['dir'])"),
+    (DIR_READ_RULE, "bad = replace(fill, dir='Mystery')"),
+    (DIR_READ_RULE, "names = dir(module)"),
     (IO_RULE, "import math\nfrom collections.abc import Mapping\nx = sorted(values)"),
     (IO_RULE, "x = calendar.is_open(t)"),
 ]

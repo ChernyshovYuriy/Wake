@@ -97,9 +97,15 @@ Optional: `cloid`, `builderFee`, `liquidation`.
 - `startPosition`: signed position size *before* this fill (string). **Not in the plan —
   add to `Fill`.** It lets `LotBook` seed/verify position without guessing and detect
   orphans (a first-seen fill with `startPosition != 0` means truncated history).
-- `liquidation` (optional object): `{"liquidatedUser", "markPx", "method"}`. `dir` stays the
-  ordinary value (e.g. `"Close Long"`) — liquidation is **not** encoded in `dir`. Also
-  present on the *liquidator's* fills, where `liquidatedUser` is someone else.
+- `liquidation` (optional object): `{"liquidatedUser", "markPx", "method"}`. On the
+  **liquidated user's own** fill, `dir` is `Liquidated Isolated|Cross Long|Short`. On the
+  **counterparty's** fill, `dir` stays ordinary (e.g. `"Open Short"`) and `liquidatedUser` is
+  someone else. (Corrected 2026-09-25: this line used to say liquidation is never encoded in
+  `dir`, which came from counterparty fills only; see §4.)
+- `closedPnl` is computed against an average entry **rounded to price precision**, so per-fill
+  values drift from exact arithmetic (up to ~9e-5 per fill on xyz:BB). Over a flat-to-flat
+  trip, FIFO (`LotBook`) and the summed `closedPnl` agree to well under 1 ppm of the trip's
+  entry notional (tests/domain/test_lots.py, real capture). `LotBook`'s exact value is used.
 - `hash` can be all zeros (`0x000…0`) and `tid` can be `0` (spot dust conversions).
   `(tid, hash)` is unique in practice for perp fills; see §5.
 
@@ -123,14 +129,37 @@ Observed across ~62k fills from 96 wallets (equity + crypto + spot):
 Invariant confirmed: for perp dirs, sign == `+` iff `side == "B"`. `direction.py` maps the six
 perp values; the four non-perp values are a named "known, not perp" set so they raise a
 distinct error (or are filtered upstream by symbol) rather than being lumped with unknown.
-Values documented elsewhere but **not observed**: auto-deleveraging / settlement variants.
-They will raise `AdapterError` (fail loud, plan rule 10) and get added when seen.
 
-**Update 2026-09-24:** a live backtest hit `Liquidated Isolated Long`, which is absent from
-the 62k-fill sample above. Liquidations are forced closes (a long is sold: -, a short
-bought: +). `Liquidated Isolated Long|Short` and `Liquidated Cross Long|Short` are now mapped.
-Only the first was observed; the side cross-check guards all four, and any other
-`Liquidated ...` shape still raises. The same run showed a second problem: one
+**Forced trades (update 2026-09-25).** The 62k-fill sample above had none. A live scan that
+followed `liquidation.liquidatedUser` pointers from census wallets (211 `userFills` calls)
+found six more values, all now mapped and each backed by one real fill in
+`tests/fixtures/hl/dir_catalog.json`:
+
+| dir | observed on | signed exposure change |
+|---|---|---|
+| `Liquidated Isolated Long` | xyz:BRENTOIL (HIP-3) | − (the long is sold; full close) |
+| `Liquidated Isolated Short` | CASHCAT | + (the short is bought back; full close) |
+| `Liquidated Cross Long` | ETH | − (full close) |
+| `Liquidated Cross Short` | BTC | + (full close) |
+| `Settlement` | IP (delisted market) | closes the whole position: sign follows it |
+| `Auto-Deleveraging` | CASHCAT | reduces the position, never opens or flips: sign follows it |
+
+All six carry `fee = 0`; the liquidations and ADL carry a `liquidation` object with method
+`backstop`. The four liquidations have fixed signs and go through the usual side cross-check.
+`Settlement` and `Auto-Deleveraging` have no fixed sign, so `direction.py` derives it from
+`startPosition` and rejects any such fill that does not fully close (settlement) or strictly
+reduce (ADL) the position. `tests/domain/test_direction.py` requires the mapping and the
+catalog to hold exactly the same set of values: nothing is mapped on inference alone.
+
+**Where `dir` is validated.** The adapter stores `dir` as given, and `direction.py`
+rejects unknown values when a fill is first interpreted. Rejecting them in the adapter
+would fail the whole page, dropping the wallet's entire history at load time because of one
+(possibly later) fill: in a backtest, the look-ahead fixed in AUDIT.md F3-1. Instead, an
+architecture rule makes `direction.py` the only reader of `Fill.dir`, so nothing can act on
+an unvalidated value.
+
+**Update 2026-09-24:** a live backtest hit `Liquidated Isolated Long`, which was then mapped
+together with three unobserved siblings (all four since observed, above). The same run showed a second problem: one
 uninterpretable wallet aborted the whole backtest. The backtest now leaves such a wallet
 out of every session whose lookback holds the bad fill, and reports it in the caveats, as
 the live pipeline already did per wallet. The decision is made per session from the fills
@@ -232,8 +261,9 @@ later fill into earlier sessions; see AUDIT.md F3-1.)
 
 ## 10. Open items (carry forward)
 
-- Liquidation / ADL / settlement `dir` variants: not observed; fail loud when first seen.
-- Behavior of delisted-market settlement fills (e.g. `xyz:DXY`): not observed.
+- ~~Liquidation / ADL / settlement `dir` variants~~: observed 2026-09-25, mapped (§4).
+- ~~Delisted-market settlement fills~~: observed on core perp IP (`Settlement`, §4). Not yet
+  seen on a HIP-3 market; a HIP-3 settlement that does not fully close raises.
 - Exact WS subscription cap per IP: from docs, not load-tested.
 
 ## 11. Plan changes applied in code (Phase 1)
