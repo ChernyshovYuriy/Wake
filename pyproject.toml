@@ -7,6 +7,7 @@ name = "hl-whale-signals"
 version = "0.1.0"
 description = "Swing-trade signal generator for US equities from Hyperliquid HIP-3 equity perps. Signals only."
 requires-python = ">=3.12"
+license = "MIT"
 dependencies = [
     "httpx>=0.27",
     "websockets>=13",

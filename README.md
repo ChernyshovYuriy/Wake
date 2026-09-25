@@ -446,3 +446,9 @@ python scripts/capture_fixtures.py                    # re-capture Phase 0 API f
 - `IMPLEMENTATION_PLAN.md`: the phased plan.
 - `docs/api-notes.md`: verified API facts and every deliberate change to the plan.
 - `docs/live-run.md`: live run log.
+
+---
+
+## License
+
+MIT: see [LICENSE](LICENSE). Research signals, not financial advice.
