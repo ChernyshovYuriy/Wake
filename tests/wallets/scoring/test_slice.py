@@ -94,6 +94,10 @@ def test_candles_and_score_carried() -> None:
     assert NVDA in s.candles
 
 
+def test_history_is_not_truncated_unless_said_so() -> None:
+    assert slice_of([]).truncated is False
+
+
 def test_same_day_fills_count_one_active_day() -> None:
     s = slice_of(make_fills([("Open Long", 1, 100), ("Close Long", 1, 100)], step_ms=HOUR_MS))
     assert s.fills_per_active_day == 2.0

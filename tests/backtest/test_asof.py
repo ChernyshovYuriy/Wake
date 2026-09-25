@@ -120,5 +120,16 @@ def test_prior_score_dated_after_t_is_hidden() -> None:
 
 
 def test_fills_must_be_sorted() -> None:
-    with pytest.raises(ValueError, match="sorted"):
+    with pytest.raises(ValueError, match=f"^fills of {WALLET} must be sorted by time$"):
         HistoricalData(records=(), fills={WALLET: tuple(reversed(FILLS))}, candles={}, markets={})
+
+
+def test_candles_must_be_sorted() -> None:
+    with pytest.raises(ValueError, match=r"^candles of xyz:NVDA must be sorted by time$"):
+        HistoricalData(records=(), fills={}, candles={NVDA: tuple(reversed(CANDLES))}, markets={})
+
+
+def test_look_ahead_error_names_both_times() -> None:
+    t = T0_MS + 5 * MS_PER_HOUR
+    with pytest.raises(LookAheadError, match=f"^read up to {t + 1} from a view as of {t}$"):
+        DATA.at(t).fills_between(WALLET, t - MS_PER_HOUR, t + 1)

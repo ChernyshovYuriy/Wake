@@ -12,6 +12,7 @@ from dataclasses import dataclass, field
 from datetime import date, datetime
 from decimal import Decimal
 from enum import StrEnum
+from itertools import pairwise
 from types import MappingProxyType
 
 from hlsignals.core.clock import require_aware
@@ -69,8 +70,8 @@ class L2Book:
 
     def __post_init__(self) -> None:
         _require(
-            all(a.px > b.px for a, b in zip(self.bids, self.bids[1:], strict=False))
-            and all(a.px < b.px for a, b in zip(self.asks, self.asks[1:], strict=False)),
+            all(a.px > b.px for a, b in pairwise(self.bids))
+            and all(a.px < b.px for a, b in pairwise(self.asks)),
             "book levels out of order",
         )
 

@@ -1,10 +1,13 @@
 from __future__ import annotations
 
+import dataclasses
+import re
 from collections.abc import Callable, Sequence
 from typing import Any
 
 import pytest
 
+from hlsignals.core.chain import Filter
 from hlsignals.core.clock import MS_PER_DAY, MS_PER_HOUR
 from hlsignals.domain.models import Candle, Fill
 from hlsignals.domain.symbols import Symbol
@@ -54,9 +57,15 @@ def test_symmetric_high_frequency_maker_rejected() -> None:
     fills = make_trips([0.0005, -0.0005] * 50, hold_ms=30_000, gap_ms=60_000, crossed=False)
     verdict = MAKER.apply(make_equity_slice(fills))
     assert not verdict.accepted
-    assert "taker ratio" in verdict.reason
-    assert "fills/day" in verdict.reason
-    assert "median hold" in verdict.reason
+    # 30 s holds = 0.01 h; the 0.1-day floor = 2.40 h; 200 fills in one active day.
+    assert verdict.reason == (
+        "taker ratio 0.00 < 0.20; 200 fills/day > 50; median hold 0.01 h < 2.40 h"
+    )
+
+
+def test_short_hold_reason_is_in_hours() -> None:
+    hourly = make_equity_slice(make_trips([0.01] * 3, hold_ms=MS_PER_HOUR, gap_ms=MS_PER_DAY))
+    assert MAKER.apply(hourly).reason == "median hold 1.00 h < 2.40 h"
 
 
 @pytest.mark.parametrize(
@@ -269,6 +278,67 @@ def test_chain_short_circuits_and_aggregates_reasons() -> None:
 
 
 # --- fill-rate pre-screen (applied to the first page of history) ----------------------------
+
+
+def test_inactivity_without_fills_says_so() -> None:
+    assert InactivityFilter(14.0).apply(make_equity_slice([])).reason == "no US-stock fills"
+
+
+# --- threshold validation ---------------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    "build",
+    [
+        lambda: MinEquitySampleFilter(0),
+        lambda: MakerProfileFilter(0.0, 0.5, 0.0),
+        lambda: MakerProfileFilter(1.0, 0.5, 0.0),
+        lambda: InactivityFilter(0.0),
+        lambda: InactivityFilter(0.5),
+        lambda: ReversalBaitFilter(
+            window_hours=0.5, min_events=1, max_reversal_rate=0.0, min_move=0.0
+        ),
+        lambda: ReversalBaitFilter(
+            window_hours=0.5, min_events=1, max_reversal_rate=1.0, min_move=0.0
+        ),
+    ],
+)
+def test_threshold_edges_are_valid(build: Callable[[], Filter[EquitySlice]]) -> None:
+    assert build().name
+
+
+@pytest.mark.parametrize(
+    ("build", "message"),
+    [
+        (lambda: MinEquitySampleFilter(-1), "invalid threshold: min_round_trips=-1"),
+        (lambda: MakerProfileFilter(1.5, 1.0, 0.0), "invalid threshold: taker=1.5"),
+        (lambda: MakerProfileFilter(-0.1, 1.0, 0.0), "invalid threshold: taker=-0.1"),
+        (lambda: MakerProfileFilter(0.5, 0.0, 0.0), "invalid threshold: fills/day=0.0"),
+        (lambda: MakerProfileFilter(0.5, 1.0, -1.0), "invalid threshold: min_median_hold_days"),
+        (lambda: InactivityFilter(-1.0), "invalid threshold: max_days_since_last_fill"),
+    ],
+)
+def test_invalid_thresholds_name_the_parameter(build: Callable[[], object], message: str) -> None:
+    with pytest.raises(ValueError, match=f"^{re.escape(message)}$"):
+        build()
+
+
+@pytest.mark.parametrize(
+    "kwargs",
+    [
+        {"window_hours": 0.0},
+        {"min_events": 0},
+        {"max_reversal_rate": 1.5},
+        {"max_reversal_rate": -0.1},
+        {"min_move": -0.01},
+    ],
+)
+def test_invalid_reversal_bait_parameters(kwargs: dict[str, Any]) -> None:
+    valid = ReversalBaitFilter(
+        window_hours=24.0, min_events=3, max_reversal_rate=0.5, min_move=0.02
+    )
+    with pytest.raises(ValueError, match=r"^invalid reversal-bait parameters"):
+        dataclasses.replace(valid, **kwargs)
 
 
 def test_prescreen_rejects_hyperactive_sample() -> None:

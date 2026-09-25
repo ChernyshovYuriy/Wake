@@ -10,7 +10,13 @@ import statistics
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 
-from hlsignals.domain.models import SignalComponent, SignalFlag, SignalStatus, TickerSignal
+from hlsignals.domain.models import (
+    SignalComponent,
+    SignalDirection,
+    SignalFlag,
+    SignalStatus,
+    TickerSignal,
+)
 from hlsignals.signals.combiner import WeightedCombiner
 from hlsignals.signals.corroboration import Corroboration, CorroborationResult
 from hlsignals.signals.features import SignalFeature
@@ -47,7 +53,8 @@ class SignalEngine:
         corroboration = self.corroboration.check(inputs)
         if corroboration.sufficient:
             score, direction = self.combiner.combine(components)
-            comparison = ">" if abs(score) > self.combiner.epsilon else "<="
+            # Worded from the combiner's decision: the epsilon boundary lives only there.
+            comparison = "<=" if direction is SignalDirection.FLAT else ">"
             status = SignalStatus.SCORED
             reason = (
                 f"{direction.value}: |score {score:+.3f}| {comparison} epsilon "

@@ -1,10 +1,12 @@
 from __future__ import annotations
 
+import re
 from collections.abc import Callable
 
 import pytest
 
 from hlsignals.core.clock import MS_PER_DAY
+from hlsignals.domain.models import Fill
 from hlsignals.wallets.scoring.features import (
     ConsistencyFeature,
     DrawdownFeature,
@@ -13,7 +15,7 @@ from hlsignals.wallets.scoring.features import (
     PriorScoreFeature,
     WalletFeature,
 )
-from tests.factories import make_equity_slice, make_trips
+from tests.factories import T0_MS, make_equity_slice, make_trips
 
 EMPTY = make_equity_slice([])
 FEATURES: list[WalletFeature] = [
@@ -53,6 +55,28 @@ def test_drawdown() -> None:
     assert wiped.value == 0.0
 
 
+def test_consistency_buckets_trips_by_calendar_period() -> None:
+    """Three 7-day periods: (-2, +1) nets -1, +0.5 is positive, 0 is not positive -> 1/3."""
+    period_ms = 7 * MS_PER_DAY
+    start = (T0_MS // period_ms + 1) * period_ms  # a period boundary
+    hour = MS_PER_DAY // 24
+
+    def trip(r: float, day: int) -> list[Fill]:
+        return make_trips([r], hold_ms=hour, t0_ms=start + day * MS_PER_DAY)
+
+    fills = [*trip(-0.02, 0), *trip(0.01, 1), *trip(0.005, 8), *trip(0.0, 15)]
+    value = ConsistencyFeature(7.0).compute(make_equity_slice(fills))
+    assert value is not None
+    assert value.value == pytest.approx(1 / 3)
+    assert value.evidence == {
+        "n_trips": 4,
+        "periods": 3,
+        "positive_periods": 1,
+        "negative_or_flat_periods": 2,
+        "period_days": 7.0,
+    }
+
+
 def test_consistency_counts_positive_periods() -> None:
     # One trip per ~2 days over 4 weeks; weeks alternate winning / losing.
     returns = [0.01] * 4 + [-0.01] * 4 + [0.01] * 4 + [-0.02] * 4
@@ -78,6 +102,13 @@ def test_horizon_fit(hold_days: float, expected: float) -> None:
     assert value.value == pytest.approx(expected)
 
 
+def test_zero_hold_has_no_horizon_fit() -> None:
+    value = HorizonFitFeature(5.0).compute(make_equity_slice(make_trips([0.01] * 3, hold_ms=0)))
+    assert value is not None
+    assert value.value == 0.0
+    assert value.evidence["median_hold_days"] == 0.0
+
+
 def test_prior_score() -> None:
     assert PriorScoreFeature(scale=100.0).compute(EMPTY) is None  # absent -> skipped
     with_score = make_equity_slice([], raw_score=80.0)
@@ -90,18 +121,19 @@ def test_prior_score() -> None:
     assert top is not None
     assert value.value == 0.8
     assert top.value == 1.0
+    assert value.evidence == {"raw_score": 80.0, "scale": 100.0}
 
 
 @pytest.mark.parametrize(
-    "build",
+    ("build", "message"),
     [
-        lambda: HitRateFeature(0.0),
-        lambda: DrawdownFeature(0.0),
-        lambda: ConsistencyFeature(0.0),
-        lambda: HorizonFitFeature(0.0),
-        lambda: PriorScoreFeature(0.0),
+        (lambda: HitRateFeature(0.0), "hit-rate z must be positive: 0.0"),
+        (lambda: DrawdownFeature(0.0), "tolerated drawdown must be positive: 0.0"),
+        (lambda: ConsistencyFeature(0.0), "consistency period must be positive: 0.0"),
+        (lambda: HorizonFitFeature(0.0), "swing horizon must be positive: 0.0"),
+        (lambda: PriorScoreFeature(0.0), "prior score scale must be positive: 0.0"),
     ],
 )
-def test_parameters_must_be_positive(build: Callable[[], object]) -> None:
-    with pytest.raises(ValueError, match="positive"):
+def test_parameters_must_be_positive(build: Callable[[], object], message: str) -> None:
+    with pytest.raises(ValueError, match=f"^{re.escape(message)}$"):
         build()

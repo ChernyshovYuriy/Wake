@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import math
+import re
 from collections.abc import Callable
 from dataclasses import replace
 
@@ -59,6 +60,16 @@ def test_positioning_trust_weighting() -> None:
         make_ticker_inputs(wallets=[trusted, doubtful], positions=positions)
     )
     assert component.value == pytest.approx((0.9 - 0.1) / (0.9 + 0.1))
+
+
+def test_positioning_counts_only_non_zero_sides() -> None:
+    positions = [
+        make_position(wallet=A, size=D("0.5")),  # a fractional long is long, not short
+        make_position(wallet=B, size=D(0)),  # flat: neither
+    ]
+    component = POSITIONING.compute(make_ticker_inputs(wallets=[WA, WB], positions=positions))
+    assert (component.evidence["n_long"], component.evidence["n_short"]) == (1, 0)
+    assert component.value == 1.0
 
 
 def test_positioning_uses_current_mark_price() -> None:
@@ -120,7 +131,19 @@ def test_flow_below_floor_zeroed_with_note() -> None:
 def test_flow_zero_open_interest() -> None:
     component = flow_of(buy(A, 30_000, AS_OF), market=make_market_ctx(open_interest=0.0))
     assert component.value == 0.0
-    assert "open interest" in str(component.evidence["note"])
+    assert component.evidence["note"] == "no open interest: flow cannot be normalized"
+
+
+def test_flow_exactly_at_the_floor_is_kept() -> None:
+    component = flow_of(buy(A, 40_000, AS_OF))  # 0.5 x 40k = $20k = exactly 2% of OI
+    assert component.evidence["flow_oi_frac"] == 0.02
+    assert component.value == pytest.approx(0.02 / 0.10)
+    assert "note" not in component.evidence
+
+
+def test_flow_normalizes_by_any_positive_open_interest() -> None:
+    tiny = make_market_ctx(mark_px=100.0, open_interest=0.005)  # $0.50 of OI
+    assert flow_of(buy(A, 100, AS_OF), market=tiny).value == 1.0
 
 
 # --- overnight -------------------------------------------------------------------------------
@@ -152,7 +175,42 @@ def test_overnight_single_candle_before_close_has_no_latest_move() -> None:
 def test_overnight_all_candles_after_close() -> None:
     component = overnight([100.0, 101.0], t0=CLOSE_MS + 1)
     assert component.value == 0.0
-    assert "last close" in str(component.evidence["note"])
+    assert component.evidence == {"note": "no candle closed by the last close", "stale": True}
+
+
+def test_overnight_move_exactly_at_the_floor_is_kept() -> None:
+    floor = math.log(102.0 / 100.0)
+    feature = OvernightFeature(min_move=floor, full_scale_move=0.03, max_staleness_hours=2.0)
+    candles = make_candle_series([100.0, 100.0, 100.0, 102.0], step_ms=MS_PER_HOUR)
+    inputs = make_ticker_inputs(
+        candles=candles, as_of_ms=T0_MS + 4 * MS_PER_HOUR, last_close_ms=CLOSE_MS
+    )
+    component = feature.compute(inputs)
+    assert component.value == pytest.approx(floor / 0.03)
+    assert "note" not in component.evidence
+
+
+def test_overnight_large_drop_saturates_at_minus_one() -> None:
+    assert overnight([100.0, 100.0, 100.0, 90.0, 90.0, 90.0]).value == -1.0
+
+
+def test_overnight_staleness_is_strictly_beyond_the_limit() -> None:
+    closes = [100.0, 100.0, 100.0, 104.0]  # the latest candle closes at T0 + 4h - 1 ms
+    latest_close = T0_MS + 4 * MS_PER_HOUR - 1
+    at_limit = overnight(closes, as_of_ms=latest_close + 2 * MS_PER_HOUR)
+    assert at_limit.evidence["stale"] is False
+    beyond = overnight(closes, as_of_ms=latest_close + 2 * MS_PER_HOUR + 1)
+    assert beyond.evidence["stale"] is True
+
+
+def test_overnight_candle_closing_exactly_at_as_of_is_the_latest() -> None:
+    strict = OvernightFeature(min_move=0.003, full_scale_move=0.03, max_staleness_hours=0.5)
+    candles = make_candle_series([100.0, 100.0, 100.0, 101.0], step_ms=MS_PER_HOUR)
+    as_of = candles[-1].close_ms
+    inputs = make_ticker_inputs(candles=candles, as_of_ms=as_of, last_close_ms=CLOSE_MS)
+    component = strict.compute(inputs)
+    assert component.evidence["last_px"] == 101.0
+    assert component.evidence["stale"] is False  # 0 ms old, not the previous candle's 1 h
 
 
 def test_overnight_reference_is_the_candle_closing_at_the_close() -> None:
@@ -191,3 +249,31 @@ def test_overnight_stale_when_latest_candle_too_old() -> None:
 def test_parameter_validation(build: Callable[[], object]) -> None:
     with pytest.raises(ValueError, match="invalid"):
         build()
+
+
+@pytest.mark.parametrize(
+    ("build", "message"),
+    [
+        (lambda: FlowFeature(0.0, 0.02, 0.1), "window_hours=0.0"),
+        (lambda: FlowFeature(24.0, 0.1, 0.1), "need 0 <= min_oi_frac < full_scale"),
+        (lambda: OvernightFeature(0.03, 0.03, 2.0), "need 0 <= min_move < full_scale_move"),
+        (lambda: OvernightFeature(0.003, 0.03, 0.0), "max_staleness_hours=0.0"),
+    ],
+)
+def test_parameter_validation_names_the_parameter(
+    build: Callable[[], object], message: str
+) -> None:
+    full = f"invalid signal feature parameter: {message}"
+    with pytest.raises(ValueError, match=f"^{re.escape(full)}$"):
+        build()
+
+
+@pytest.mark.parametrize(
+    "build",
+    [
+        lambda: FlowFeature(0.5, 0.0, 0.1),  # sub-hour window, no floor
+        lambda: OvernightFeature(0.0, 0.03, 0.5),  # no floor, 30 min staleness
+    ],
+)
+def test_parameter_edges_are_valid(build: Callable[[], object]) -> None:
+    assert build() is not None

@@ -115,6 +115,34 @@ def test_flags() -> None:
     }
 
 
+def test_reason_states_the_epsilon_comparison_of_the_decision() -> None:
+    long = ENGINE.evaluate(bullish_inputs())
+    assert long.reason.startswith(f"long: |score {long.score:+.3f}| > epsilon 0.05; 3 trusted")
+    # Balanced holders, no flow, a flat perp: score 0 -> flat, and the reason says "<=".
+    flat = ENGINE.evaluate(
+        bullish_inputs(
+            positions=[
+                make_position(wallet=WALLETS[0].address, size=D(50)),
+                make_position(wallet=WALLETS[1].address, size=D(-50)),
+                make_position(wallet=WALLETS[2].address, size=D(50)),
+                make_position(wallet=WALLETS[3].address, size=D(-50)),
+            ],
+            fills=[],
+            candles=make_candle_series([100.0] * 48, step_ms=MS_PER_HOUR),
+        )
+    )
+    assert flat.direction is SignalDirection.FLAT
+    assert flat.reason.startswith("flat: |score +0.000| <= epsilon 0.05; 4 trusted")
+
+
+def test_weak_sample_flag_is_strictly_below_the_threshold() -> None:
+    at_threshold = [replace(w, confidence=0.5) for w in WALLETS]  # weak_confidence = 0.5
+    signal = ENGINE.evaluate(bullish_inputs(wallets=at_threshold))
+    assert SignalFlag.WEAK_SAMPLE not in signal.flags
+    below = [replace(w, confidence=0.49) for w in WALLETS]
+    assert SignalFlag.WEAK_SAMPLE in ENGINE.evaluate(bullish_inputs(wallets=below)).flags
+
+
 def test_engine_rejects_weights_for_features_it_does_not_compute() -> None:
     with pytest.raises(ValueError, match="not computed"):
         SignalEngine([PositioningFeature()], ENGINE.corroboration, ENGINE.combiner, ENGINE.flags)
@@ -134,17 +162,21 @@ def test_engine_rejects_duplicate_feature_names() -> None:
 
 
 def test_inputs_reject_unknown_wallets_and_other_symbols() -> None:
-    with pytest.raises(ValueError, match="unscored wallet"):
+    with pytest.raises(ValueError, match=r"^Position from unscored wallet"):
         make_ticker_inputs(positions=[make_position()])
-    with pytest.raises(ValueError, match="unscored wallet"):
+    with pytest.raises(ValueError, match=r"^Fill from unscored wallet"):
         make_ticker_inputs(fills=[make_fill()])
-    with pytest.raises(ValueError, match="symbol"):
+    with pytest.raises(ValueError, match=r"^Position for symbol xyz:AAPL in xyz:NVDA"):
         make_ticker_inputs(
             wallets=WALLETS[:1], positions=[make_position(wallet=WALLETS[0].address, symbol=AAPL)]
         )
-    with pytest.raises(ValueError, match="symbol"):
+    with pytest.raises(ValueError, match=r"^Fill for symbol xyz:AAPL in xyz:NVDA"):
+        make_ticker_inputs(
+            wallets=WALLETS[:1], fills=[make_fill(wallet=WALLETS[0].address, symbol=AAPL)]
+        )
+    with pytest.raises(ValueError, match=r"^market symbol xyz:AAPL is not xyz:NVDA"):
         make_ticker_inputs(market=make_market_ctx(symbol=AAPL))
-    with pytest.raises(ValueError, match="close"):
+    with pytest.raises(ValueError, match=r"^last close is after as_of$"):
         make_ticker_inputs(as_of_ms=T0_MS, last_close_ms=T0_MS + 1)
 
 

@@ -89,6 +89,7 @@ def test_mid_history_gap_is_recorded_and_resynced() -> None:
     book = book_of(first, later)
     (gap,) = book.gaps
     assert (gap.symbol, gap.tracked, gap.reported) == (NVDA, D(1), D(4))
+    assert (gap.time_ms, gap.tid) == (later[0].time_ms, later[0].tid)  # the offending fill
     (lot,) = book.closed_lots
     assert lot.is_orphan  # the known lot was discarded: tracked state proved wrong
     assert book.position(NVDA) == 0
@@ -263,11 +264,28 @@ def test_flip_closes_one_trip_and_opens_the_next() -> None:
 def test_trip_started_before_history_is_orphan() -> None:
     book = book_of(make_fills([("Close Long", 3, 110)], start_position=3))
     (trip,) = book.round_trips
+    assert trip.side is PositionSide.LONG  # known from start_position
+    assert trip.entry_notional is None
     assert trip.is_orphan
     assert trip.open_ms is None
     assert trip.realized_pnl is None
     assert trip.return_frac is None
     assert trip.holding_ms is None
+
+
+def test_a_gap_to_flat_discards_the_open_trip() -> None:
+    """Tracked long 1, but the next fill reports flat: the long's trip is gone, and the short
+    that follows is a clean trip of its own, not a continuation of the stale long."""
+    first = make_fills([("Open Long", 1, 100)])
+    later = make_fills(
+        [("Open Short", 1, 100), ("Close Short", 1, 90)], start_position=0, t0_ms=T0_MS + HOUR_MS
+    )
+    later[1] = replace(later[1], start_position=D(-1))
+    (trip,) = book_of(first, later).round_trips
+    assert trip.side is PositionSide.SHORT
+    assert trip.open_ms == later[0].time_ms
+    assert trip.realized_pnl == D(10)
+    assert trip.entry_notional == D(100)
 
 
 def test_gap_mid_trip_makes_it_orphan() -> None:

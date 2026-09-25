@@ -56,12 +56,22 @@ def test_only_zero_weight_features_present_gives_zero_trust() -> None:
 @pytest.mark.parametrize(
     ("features", "k", "half_life", "match"),
     [
-        ([WeightedFeature(HitRateFeature(1.96), 0.0)], 10.0, 21.0, "all feature weights are zero"),
-        ([WeightedFeature(HitRateFeature(1.96), -1.0)], 10.0, 21.0, "negative"),
-        ([], 10.0, 21.0, "at least one"),
-        ([HIT, HIT], 10.0, 21.0, "duplicate"),
-        ([HIT], 0.0, 21.0, "shrinkage_k"),
-        ([HIT], 10.0, 0.0, "half_life"),
+        (
+            [WeightedFeature(HitRateFeature(1.96), 0.0)],
+            10.0,
+            21.0,
+            "^all feature weights are zero$",
+        ),
+        (
+            [WeightedFeature(HitRateFeature(1.96), -1.0)],
+            10.0,
+            21.0,
+            "^feature weights must not be negative$",
+        ),
+        ([], 10.0, 21.0, "^a wallet scorer needs at least one feature$"),
+        ([HIT, HIT], 10.0, 21.0, "^duplicate wallet features"),
+        ([HIT], 0.0, 21.0, "^shrinkage_k must be positive: 0.0$"),
+        ([HIT], 10.0, 0.0, "^half_life_days must be positive: 0.0$"),
     ],
 )
 def test_scorer_validation(
@@ -69,6 +79,21 @@ def test_scorer_validation(
 ) -> None:
     with pytest.raises(ValueError, match=match):
         WalletScorer(features, k, half_life)
+
+
+def test_sub_unit_shrinkage_and_half_life_are_valid() -> None:
+    scorer = WalletScorer([HIT], shrinkage_k=0.5, half_life_days=0.5)
+    assert scorer.score(make_equity_slice(make_trips([0.02] * 3))).confidence == pytest.approx(
+        3 / 3.5
+    )
+
+
+def test_a_skipped_feature_does_not_stop_the_ones_after_it() -> None:
+    """prior_score (absent here) listed first: hit rate and drawdown must still be scored."""
+    scorer = WalletScorer([PRIOR, HIT, DD], shrinkage_k=10.0, half_life_days=21.0)
+    scored = scorer.score(make_equity_slice(make_trips([0.02] * 10)))
+    assert set(scored.features) == {"hit_rate", "drawdown"}
+    assert scored.trust > 0
 
 
 returns = st.lists(st.floats(-0.5, 0.5, allow_nan=False), min_size=0, max_size=25)

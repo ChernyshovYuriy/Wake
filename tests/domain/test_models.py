@@ -77,12 +77,12 @@ def test_candle_series_is_valid_and_chained() -> None:
 @pytest.mark.parametrize(
     ("overrides", "match"),
     [
-        ({"close_ms": 0}, "closes before"),
+        ({"close_ms": 0}, r"^candle closes before it opens$"),
         ({"low": 0.0}, "candle range"),
         ({"high": 50.0}, "candle range"),
         ({"close": 1000.0}, "outside low"),
-        ({"volume": -1.0}, "negative candle volume"),
-        ({"n_trades": -1}, "negative candle volume"),
+        ({"volume": -1.0}, r"^negative candle volume$"),
+        ({"n_trades": -1}, r"^negative candle volume$"),
     ],
 )
 def test_candle_validation(overrides: dict[str, Any], match: str) -> None:
@@ -139,7 +139,7 @@ def test_feature_value_evidence_is_read_only_copy() -> None:
 
 @pytest.mark.parametrize("bad", [-0.1, 1.1, math.nan])
 def test_feature_value_must_be_unit(bad: float) -> None:
-    with pytest.raises(ValueError, match="feature value"):
+    with pytest.raises(ValueError, match=r"^feature value must be in \[0, 1\]: "):
         FeatureValue(bad)
 
 
@@ -219,23 +219,25 @@ def test_ticker_signal_consistency() -> None:
     }
     TickerSignal(status=SignalStatus.SCORED, direction=SignalDirection.LONG, score=0.5, **common)
     TickerSignal(status=SignalStatus.INSUFFICIENT, direction=None, score=None, **common)
-    with pytest.raises(ValueError, match="exactly when"):
+    consistency = r"^score and direction are required exactly when the signal is scored$"
+    with pytest.raises(ValueError, match=consistency):
         TickerSignal(status=SignalStatus.INSUFFICIENT, direction=None, score=0.1, **common)
-    with pytest.raises(ValueError, match="exactly when"):
+    with pytest.raises(ValueError, match=consistency):
         TickerSignal(status=SignalStatus.SCORED, direction=None, score=0.1, **common)
-    with pytest.raises(ValueError, match=r"\[-1, 1\]"):
-        TickerSignal(
-            status=SignalStatus.SCORED, direction=SignalDirection.LONG, score=1.5, **common
-        )
+    for bad, direction in ((1.5, SignalDirection.LONG), (-1.5, SignalDirection.SHORT)):
+        with pytest.raises(ValueError, match=rf"^score must be in \[-1, 1\]: {bad}$"):
+            TickerSignal(status=SignalStatus.SCORED, direction=direction, score=bad, **common)
 
 
 def test_diagnostics_consistency_and_frozen_maps() -> None:
     diagnostics = make_diagnostics()
     with pytest.raises(TypeError):
         diagnostics.wallets_rejected["x"] = 1  # type: ignore[index]
-    with pytest.raises(ValueError, match="accepted wallets"):
+    with pytest.raises(ValueError, match=r"^accepted wallets cannot exceed considered wallets$"):
         make_diagnostics(wallets_accepted=41)
-    with pytest.raises(ValueError, match="filtered universe"):
+    with pytest.raises(
+        ValueError, match=r"^filtered universe cannot exceed the discovered universe$"
+    ):
         make_diagnostics(universe_after_filters=81)
 
 

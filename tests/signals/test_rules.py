@@ -117,6 +117,16 @@ def test_trades_after_as_of_do_not_count() -> None:
     assert RULE.check(inputs).wallets == frozenset()
 
 
+def test_a_sub_hour_window_is_valid_and_measured_in_hours() -> None:
+    rule = Corroboration(min_wallets=1, min_trust=0.4, window_hours=0.5)
+    wallets = [make_scored_wallet(address=a, trust=0.9) for a in (A, B)]
+    inputs = make_ticker_inputs(
+        wallets=wallets,
+        fills=[traded(A, AS_OF_MS - 10 * 60_000), traded(B, AS_OF_MS - 40 * 60_000)],
+    )
+    assert rule.check(inputs).wallets == frozenset({A})  # 10 min ago in, 40 min ago out
+
+
 def test_holders_count_whatever_the_age_of_their_trades() -> None:
     wallets = [make_scored_wallet(address=A, trust=0.9)]
     inputs = make_ticker_inputs(
@@ -125,6 +135,16 @@ def test_holders_count_whatever_the_age_of_their_trades() -> None:
         fills=[traded(A, AS_OF_MS - 60 * 24 * HOUR_MS)],
     )
     assert RULE.check(inputs).wallets == frozenset({A})
+
+
+def test_insufficient_is_false_not_just_falsy() -> None:
+    assert RULE.check(make_ticker_inputs()).sufficient is False
+
+
+@pytest.mark.parametrize(("min_wallets", "min_trust"), [(1, 0.4), (3, 0.0), (3, 1.0)])
+def test_corroboration_accepts_its_edges(min_wallets: int, min_trust: float) -> None:
+    rule = Corroboration(min_wallets, min_trust, WINDOW_H)
+    assert (rule.min_wallets, rule.min_trust) == (min_wallets, min_trust)
 
 
 def test_corroboration_validation() -> None:
@@ -174,9 +194,9 @@ def test_combiner_requires_every_weighted_component() -> None:
 @pytest.mark.parametrize(
     ("weights", "epsilon", "match"),
     [
-        ({"tilt": -1.0}, 0.05, "negative"),
-        ({"tilt": 0.0}, 0.05, "all signal weights are zero"),
-        ({}, 0.05, "at least one"),
+        ({"tilt": -1.0}, 0.05, r"^signal weights must not be negative$"),
+        ({"tilt": 0.0}, 0.05, r"^all signal weights are zero$"),
+        ({}, 0.05, r"^a combiner needs at least one weight$"),
         ({"tilt": 1.0}, -0.1, "epsilon"),
         ({"tilt": 1.0}, 1.0, "epsilon"),
     ],
@@ -184,6 +204,11 @@ def test_combiner_requires_every_weighted_component() -> None:
 def test_combiner_validation(weights: dict[str, float], epsilon: float, match: str) -> None:
     with pytest.raises(ValueError, match=match):
         WeightedCombiner(weights, epsilon)
+
+
+def test_combiner_accepts_zero_epsilon() -> None:
+    combiner = WeightedCombiner({"tilt": 1.0}, epsilon=0.0)
+    assert combiner.combine({"tilt": SignalComponent(0.01)})[1] is SignalDirection.LONG
 
 
 unit = st.floats(-1.0, 1.0, allow_nan=False)
@@ -206,14 +231,18 @@ def test_combiner_sign_symmetry_and_bounds(t: float, f: float, o: float) -> None
 # --- ranker -----------------------------------------------------------------------------------
 
 
+def _direction_of(score: float) -> SignalDirection:
+    if score == 0:
+        return SignalDirection.FLAT
+    return SignalDirection.LONG if score > 0 else SignalDirection.SHORT
+
+
 def signal(coin: str, score: float | None) -> TickerSignal:
     scored = score is not None
     return TickerSignal(
         symbol=Symbol("xyz", coin),
         status=SignalStatus.SCORED if scored else SignalStatus.INSUFFICIENT,
-        direction=(SignalDirection.LONG if (score or 0) > 0 else SignalDirection.SHORT)
-        if scored
-        else None,
+        direction=None if score is None else _direction_of(score),
         score=score,
         components={},
         n_wallets=3,
@@ -236,3 +265,9 @@ def test_rank_by_abs_score_ties_by_ticker_insufficient_last() -> None:
 
 def test_rank_empty() -> None:
     assert rank([]) == []
+
+
+def test_a_scored_zero_score_still_ranks_before_insufficient_names() -> None:
+    """Spec §6.10: INSUFFICIENT is listed after scored names, whatever the tickers."""
+    signals = [signal("AAA", None), signal("ZZZ", 0.0), signal("MMM", 0.1)]
+    assert [s.symbol.coin for s in rank(signals)] == ["MMM", "ZZZ", "AAA"]

@@ -31,9 +31,16 @@ def test_clamp_rejects_inverted_bounds() -> None:
 
 
 @pytest.mark.parametrize("bad", NON_FINITE)
-def test_clamp_rejects_non_finite(bad: float) -> None:
+@pytest.mark.parametrize("position", [0, 1, 2])
+def test_clamp_rejects_non_finite(bad: float, position: int) -> None:
+    args = [0.5, 0.0, 1.0]
+    args[position] = bad
     with pytest.raises(ValueError, match="finite"):
-        clamp(bad, 0.0, 1.0)
+        clamp(*args)
+
+
+def test_clamp_to_a_single_point() -> None:
+    assert clamp(5.0, 2.0, 2.0) == 2.0
 
 
 @pytest.mark.parametrize(
@@ -50,9 +57,12 @@ def test_safe_div_tiny_denominator_is_finite_or_default() -> None:
 
 
 @pytest.mark.parametrize("bad", NON_FINITE)
-def test_safe_div_rejects_non_finite(bad: float) -> None:
+@pytest.mark.parametrize("position", [0, 1, 2])
+def test_safe_div_rejects_non_finite(bad: float, position: int) -> None:
+    args = [1.0, 1.0, 0.0]
+    args[position] = bad
     with pytest.raises(ValueError, match="finite"):
-        safe_div(bad, 1.0, default=0.0)
+        safe_div(args[0], args[1], default=args[2])
 
 
 def test_wilson_zero_samples() -> None:
@@ -66,6 +76,10 @@ def test_wilson_all_wins_below_one_all_losses_zero() -> None:
 
 def test_wilson_known_value() -> None:
     assert wilson_lower_bound(8, 10, Z95) == pytest.approx(0.4902, abs=1e-4)
+
+
+def test_wilson_accepts_any_positive_z() -> None:
+    assert 0.0 < wilson_lower_bound(8, 10, 0.5) < 0.8  # z < 1 is a narrower, valid interval
 
 
 def test_wilson_larger_z_is_more_conservative() -> None:

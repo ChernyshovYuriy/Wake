@@ -35,8 +35,25 @@ restoring the old line in the scratch copy.
 | **B-1** the 100% per-package coverage gate was not wired | `scripts/ci.sh` adds a `coverage report --include=<core, domain, signals, wallets/scoring, wallets/filters.py, session, backtest/asof.py> --fail-under=100` step after the tests (27 files) | Probe in the scratch copy: an untested 3-line function in `signals/combiner.py`. The old 95% gate passed (99.50% overall); the new step fails with exit 2 and names `combiner.py 42-44` |
 | **Rule 8** network in unit tests was convention only | An autouse fixture in `tests/conftest.py` blocks `connect`/`connect_ex` on AF_INET/AF_INET6 sockets and `getaddrinfo`, raising `NetworkBlockedError` (a `RuntimeError`, so HTTP clients and retry loops cannot swallow it). Tests marked `live` opt out; AF_UNIX sockets keep working | `tests/test_network_guard.py` (7): raw, `connect_ex`, IPv6, httpx, asyncio and DNS are blocked; `socketpair` works. Probe: the audit's socket test placed in `tests/` now fails with `NetworkBlockedError`; the same test marked `live` passes under `-m live`. The full suite passes, so no existing test was using the network |
 | **F2-2..F2-6** architecture guards matched only their planted spelling | `tests/architecture/test_single_home.py`: **clock** resolves import aliases to qualified names (`dt.now`, `datetime.datetime.now`, `t.time`, `time_ns`, `monotonic_ns`, `asyncio.sleep`, from-imports); **symbols** adds dex-prefix and coin-suffix constants glued with `+`, `%` and `.format` templates with `:` between placeholders, named `':'` separators, `sep=':'`, and `index`/`find(':')`; **dir** adds word-boundary prefixes and suffixes in `startswith`/`endswith` (including tuples) and `in`, plus constant `+` chains that fold into a dir literal; **I/O** adds `os`, `pathlib`, `glob`, `tempfile`, `tomllib`, `pickle`, `asyncio`, network modules, and file methods (`read_text`, `read_bytes`, `open`, ...); `backtest/asof.py` is now pure (F2-6) | Every Phase 2 variant is a `PLANTED` case (38 total), plus 17 `CLEAN` look-alikes that must not be flagged (`from datetime import time`, `clock.now()`, `f'value: {x}'`, `'%H:%M'`, `side = 'long'`, `'Long' + ' term'`, ...). Re-running the Phase 2 probes inside real `src` modules of the scratch copy: **23/23 detected** (before: 4/19). No false positives in the real source |
+| **Phase 6 remaining survivors** | Tests for every non-equivalent survivor: signal floors, staleness and saturation at exact boundaries; flat-signal reason text; weak-confidence equality; ranker with a zero-score scored signal; `TickerSignal` at ±1 and rejecting ±1.5; consistency bucketing (same-period trips, zero-PnL period); zero-hold horizon fit; prior-score evidence; scorer with a skipped feature first; LotBook gap evidence, gap-to-flat and orphan side; mathx NaN in every argument, `clamp(x, a, a)`, `z < 1`; every validator at its valid edge; exact messages for every rejection (`tests/domain/test_model_edges.py` and anchored `match=`). Source changes: `engine.py` words the reason from the combiner's decision (fixes **F8-2**); `L2Book` uses `itertools.pairwise`; `HorizonFitFeature` drops a `safe_div`/`isfinite` guard that could never fire | Fresh mutmut run on the final code: **1701 mutants, 1681 killed (3 by timeout), 20 survive (98.8%)**, up from 86.5%. All 20 were re-run with `mutmut apply` against the full suite and still survive; each is equivalent (below) |
 
 All other findings are open.
+
+### The 20 equivalent mutants (no input can distinguish them)
+
+| Mutant | Why it is equivalent |
+|---|---|
+| `direction.signed_size`: `sign > 0` → `>= 0` (×2) | `sign` is ±1, never 0 |
+| `lots._side_of`: `size > 0` → `>= 0` | only called with a non-zero size |
+| `lots._match`: `lots[0].size > 0` → `>=`, `remaining > 0` → `>=`, `lot.size < 0` → `<=`, `remaining < 0` → `<=` | inside the loop both are non-zero (loop condition, and lots are popped at 0) |
+| `lots._reconcile`: orphan trip created with `orphan=False` / `None` / default (×3) | the trip's only lot has no entry, and closing it sets `orphan = True` in `_book_close` before the trip can finish |
+| `combiner.combine`: clamp bounds ±1 → ±2 (×2) | the score is a weighted mean of components already validated to [-1, 1] |
+| `combiner.combine`: `LONG if score > 0` → `>= 0` | a score of 0 is already FLAT (`abs(score) <= epsilon`, `epsilon >= 0`) |
+| `PositioningFeature`: tilt clamp ±1 → ±2 (×2) | `abs(net) <= gross` by construction |
+| `WalletScorer.score`: base and trust clamps 1 → 2 (×2) | features are validated to [0, 1], weights are ≥ 0, and confidence and decay are ≤ 1 |
+| `DrawdownFeature`: `return_frac or 0.0` → `or 1.0` | scored trips are never orphans and have positive entry notional, so `return_frac` is never None |
+| `ConsistencyFeature`: `close_ms // period` → `int(close_ms / period)` | identical for non-negative timestamps (truncation = floor) |
+| `ranker.rank`: INSUFFICIENT key `1` → `2` | any value above the scored key 0 gives the same order |
 
 ## Invariant table
 

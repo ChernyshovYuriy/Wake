@@ -7,11 +7,10 @@ has no external score, which makes the scorer skip it and renormalize the weight
 
 from __future__ import annotations
 
-import math
 from typing import Protocol
 
 from hlsignals.core.clock import MS_PER_DAY
-from hlsignals.core.mathx import clamp, safe_div, wilson_lower_bound
+from hlsignals.core.mathx import clamp, wilson_lower_bound
 from hlsignals.domain.models import FeatureValue
 from hlsignals.wallets.scoring.slice import EquitySlice
 
@@ -119,14 +118,14 @@ class HorizonFitFeature:
         median = wallet.median_hold_days
         if median is None:
             return _no_trips()
-        ratio = median / self.horizon_days
-        value = min(ratio, safe_div(1.0, ratio, default=0.0)) if ratio > 0 else 0.0
+        ratio = median / self.horizon_days  # finite and >= 0: holds are finite, horizon > 0
+        value = min(ratio, 1.0 / ratio) if ratio > 0 else 0.0
         evidence = {
             "n_trips": wallet.n_scored_trips,
             "median_hold_days": median,
             "horizon_days": self.horizon_days,
         }
-        return FeatureValue(value if math.isfinite(value) else 0.0, evidence)
+        return FeatureValue(value, evidence)
 
 
 class PriorScoreFeature:
