@@ -15,3 +15,10 @@ echo "== duplication"
 "$BIN/pylint" --disable=all --enable=duplicate-code --min-similarity-lines=6 \
   --ignore=fixtures src tests
 echo "== pytest";      "$BIN/pytest" --cov --cov-branch --cov-fail-under=95 "$@"
+# IMPLEMENTATION_PLAN.md §7: 100% branch coverage for the pure core, on top of 95% overall.
+# One report over these paths reaches 100% only if every file in it does.
+FULL_COVERAGE="src/hlsignals/core/*,src/hlsignals/domain/*,src/hlsignals/signals/*,\
+src/hlsignals/wallets/scoring/*,src/hlsignals/wallets/filters.py,src/hlsignals/session/*,\
+src/hlsignals/backtest/asof.py"
+echo "== coverage 100% (pure core)"
+"$BIN/coverage" report --include="$FULL_COVERAGE" --fail-under=100

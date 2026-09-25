@@ -433,8 +433,10 @@ JSON fields: `period` (`start`, `end`), `sample` (`sessions`, `trades`),
 ## Development
 
 ```bash
-scripts/ci.sh                 # ruff, format, mypy --strict, import-linter, duplication, tests + coverage
-pytest -m live tests/live     # tests against the real API (excluded by default)
+scripts/ci.sh                 # ruff, format, mypy --strict, import-linter, duplication, tests,
+                              # coverage >= 95% overall and 100% for the pure core
+pytest -m live tests/live     # tests against the real API (excluded by default; the only
+                              # tests allowed network access; tests/conftest.py blocks the rest)
 UPDATE_SNAPSHOTS=1 pytest tests/reporting tests/app   # after an intended output change
 python scripts/capture_fixtures.py                    # re-capture Phase 0 API fixtures
 ```
