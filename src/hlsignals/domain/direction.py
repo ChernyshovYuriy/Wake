@@ -77,9 +77,9 @@ def _forced_close_size(fill: Fill) -> Decimal:
     Anything else is not a forced close we understand, so it is rejected rather than trusted."""
     delta = fill.sz if fill.side is Side.BUY else -fill.sz
     start, end = fill.start_position, fill.start_position + delta
-    closes = end == 0
-    reduces = start != 0 and abs(end) < abs(start) and (end == 0 or (end > 0) == (start > 0))
-    if not (closes if fill.dir == SETTLEMENT else reduces) or start == 0:
+    # Settlement: nothing left. ADL: 0 <= end/start < 1, i.e. smaller, same side, never flipped.
+    ok = start != 0 and (end == 0 if fill.dir == SETTLEMENT else 0 <= end / start < 1)
+    if not ok:
         what = "close" if fill.dir == SETTLEMENT else "reduce"
         raise AdapterError(
             f"{fill.dir.lower()} fill does not {what} the position: start {start}, "

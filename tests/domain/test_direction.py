@@ -149,7 +149,9 @@ def test_real_settlement_fill_closes_the_short_it_settles() -> None:
     assert fill.start_position + signed_size(fill) == 0
 
 
-@pytest.mark.parametrize(("start", "side", "sz"), [(5, Side.SELL, 5), (-5, Side.BUY, 5)])
+@pytest.mark.parametrize(
+    ("start", "side", "sz"), [(5, Side.SELL, 5), (-5, Side.BUY, 5), (1, Side.SELL, 1)]
+)
 def test_settlement_closes_either_side(start: int, side: Side, sz: int) -> None:
     fill = make_fill(dir=SETTLEMENT, side=side, sz=D(sz), start_position=D(start))
     assert signed_size(fill) == -D(start)
@@ -184,19 +186,27 @@ def test_real_adl_fill_closes_the_long_it_deleverages() -> None:
 
 
 @pytest.mark.parametrize(
-    ("start", "side", "sz", "delta"),
-    [(5, Side.SELL, 5, -5), (5, Side.SELL, 2, -2), (-5, Side.BUY, 3, 3)],
-    ids=["full", "partial long", "partial short"],
+    ("start", "side", "sz"),
+    [
+        ("5", Side.SELL, "5"),
+        ("5", Side.SELL, "2"),
+        ("-5", Side.BUY, "3"),
+        ("1", Side.SELL, "0.4"),
+        ("5", Side.SELL, "4.5"),  # leaves 0.5: fractional positions are normal
+        ("0.5", Side.SELL, "0.2"),
+        ("-0.5", Side.BUY, "0.2"),
+    ],
+    ids=["full", "partial long", "partial short", "unit", "to half", "half long", "half short"],
 )
-def test_adl_reduces_either_side(start: int, side: Side, sz: int, delta: int) -> None:
+def test_adl_reduces_either_side(start: str, side: Side, sz: str) -> None:
     fill = make_fill(dir=AUTO_DELEVERAGING, side=side, sz=D(sz), start_position=D(start))
-    assert signed_size(fill) == D(delta)
+    assert signed_size(fill) == (D(sz) if side is Side.BUY else -D(sz))
 
 
 @pytest.mark.parametrize(
     ("start", "side", "sz"),
-    [(5, Side.BUY, 1), (0, Side.SELL, 1), (5, Side.SELL, 6)],
-    ids=["increases", "no position", "flips"],
+    [(5, Side.BUY, 1), (0, Side.SELL, 1), (5, Side.SELL, 6), (5, Side.SELL, 0)],
+    ids=["increases", "no position", "flips", "zero size"],
 )
 def test_adl_that_does_not_reduce_the_position_is_rejected(start: int, side: Side, sz: int) -> None:
     fill = make_fill(dir=AUTO_DELEVERAGING, side=side, sz=D(sz), start_position=D(start))
