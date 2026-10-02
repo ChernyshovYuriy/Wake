@@ -42,7 +42,7 @@ def test_everything_missing_is_empty_not_an_error(tmp_path: Path) -> None:
     assert load_backtest(p, None) is None
     assert backtest_days(p) == []
     assert census_stats(p, NOW_MS, min_observations=20, live_minutes=30) is None
-    assert discovery_state(p, limit=10) is None
+    assert discovery_state(p, limit=10, min_trust=0.4) is None
     assert curated_wallets(p) == ([], None)
     assert not (tmp_path / "census.sqlite").exists()  # reading never creates databases
 
@@ -113,7 +113,7 @@ def test_discovery_state_and_curated(tmp_path: Path) -> None:
         NOW_MS - 1,
     )
     store.close()
-    state = discovery_state(p, limit=10)
+    state = discovery_state(p, limit=10, min_trust=0.4)
     assert state is not None
     assert [s.address for s in state.shortlist] == [good]
     assert state.rejected == {"maker_profile": 1}

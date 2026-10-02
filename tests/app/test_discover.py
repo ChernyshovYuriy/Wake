@@ -20,7 +20,7 @@ A, B, C, D = (wallet_address(i) for i in (1, 2, 3, 4))
 
 
 def obs(address: str, n: int) -> WalletObservation:
-    return WalletObservation(address, 0, NOW_MS, n)
+    return WalletObservation(address, NOW_MS, NOW_MS, n)  # n fills in one instant: n per day
 
 
 def accepted(address: str, trust: float = 0.5) -> VetResult:
@@ -49,6 +49,10 @@ def store(tmp_path: Path) -> Iterator[DiscoveryStore]:
     s.close()
 
 
+MIN_TRUST = 0.4
+MAX_FILLS_PER_DAY = 200.0
+
+
 def test_store_round_trip_and_update(store: DiscoveryStore) -> None:
     store.record(accepted(A, 0.61), NOW_MS)
     store.record(rejected(B), NOW_MS)
@@ -56,7 +60,7 @@ def test_store_round_trip_and_update(store: DiscoveryStore) -> None:
     assert store.last(B) == (NOW_MS, False)
     assert store.last(C) is None
     store.record(rejected(A), NOW_MS + 1)  # an accepted wallet that degrades drops out
-    assert store.shortlist() == []
+    assert store.shortlist(MIN_TRUST) == []
 
 
 def test_errors_are_not_recorded_so_they_are_retried(store: DiscoveryStore) -> None:
@@ -78,27 +82,52 @@ def test_candidates_order_and_limits(store: DiscoveryStore) -> None:
         obs(D, 5),
     ]
     settings = DiscoverySettings(min_observations=20, max_wallets_per_run=10, revet_days=28.0)
-    picked = select_candidates(observations, store, NOW_MS, settings)
-    # never vetted first (most active first), then accepted re-checks, then due re-vets;
+    picked = select_candidates(observations, store, NOW_MS, settings, MAX_FILLS_PER_DAY)
+    # accepted re-checks first, then never vetted (least active first), then due re-vets;
     # B (recent reject) and D (too few observations) are left out.
-    assert [r.address for r in picked] == [new_busy, new_quiet, A, C]
-    assert picked[0].source == "census"
-    assert picked[0].raw_metric == "census_fills=80"
+    assert [r.address for r in picked.records] == [A, new_quiet, new_busy, C]
+    assert (picked.recent, picked.prescreened, picked.deferred) == (1, 0, 0)
+    assert picked.records[2].source == "census"
+    assert picked.records[2].raw_metric == "census_fills=80, census_fills_per_day=80.0"
     capped = select_candidates(
-        observations, store, NOW_MS, DiscoverySettings(max_wallets_per_run=2)
+        observations, store, NOW_MS, DiscoverySettings(max_wallets_per_run=2), MAX_FILLS_PER_DAY
     )
-    assert len(capped) == 2
+    assert [r.address for r in capped.records] == [A, new_quiet]  # re-checks never starve
+    assert capped.deferred == 2
+
+
+def test_census_rate_over_the_maker_limit_skips_vetting(store: DiscoveryStore) -> None:
+    store.record(accepted(A), NOW_MS - 1 * MS_PER_DAY)
+    store.record(rejected(C), NOW_MS - 30 * MS_PER_DAY)
+    one_day = NOW_MS - NOW_MS % MS_PER_DAY  # all observations inside today's UTC day
+    maker, swing = wallet_address(10), wallet_address(11)
+    observations = [
+        WalletObservation(a, one_day, NOW_MS, n)
+        for a, n in ((A, 500), (C, 500), (maker, 201), (swing, 200))
+    ]
+    picked = select_candidates(observations, store, NOW_MS, DiscoverySettings(), MAX_FILLS_PER_DAY)
+    # A is accepted: re-vetted in full whatever its census rate; C and the maker are
+    # prescreened; the swing wallet sits exactly on the limit, which passes.
+    assert [r.address for r in picked.records] == [A, swing]
+    assert picked.prescreened == 2
+    spread = [WalletObservation(maker, one_day - 2 * MS_PER_DAY, NOW_MS, 201)]  # 3 days
+    assert (
+        select_candidates(spread, store, NOW_MS, DiscoverySettings(), MAX_FILLS_PER_DAY).prescreened
+        == 0
+    )
 
 
 def test_shortlist_file_is_a_curated_wallets_file(store: DiscoveryStore, tmp_path: Path) -> None:
     store.record(accepted(A, 0.42), NOW_MS)
     store.record(accepted(B, 0.71), NOW_MS)
+    store.record(accepted(C, 0.39), NOW_MS)  # accepted, but below the signals' min_trust
     path = tmp_path / "out" / "shortlist.toml"
-    write_shortlist(path, store.shortlist(), AS_OF)
+    write_shortlist(path, store.shortlist(MIN_TRUST), AS_OF)
     doc = tomllib.loads(path.read_text())
-    assert [w["address"] for w in doc["wallets"]] == [B, A]  # by trust
+    assert [w["address"] for w in doc["wallets"]] == [B, A]  # by trust; C cannot count yet
     assert "trust 0.710" in doc["wallets"][0]["note"]
     assert "score" not in doc["wallets"][0]  # trust is not an external prior score
+    assert [e.address for e in store.shortlist(0.39)] == [B, A, C]  # the bar is inclusive
 
 
 class FakePipeline:
@@ -124,10 +153,12 @@ def test_discover_end_to_end(store: DiscoveryStore, tmp_path: Path) -> None:
         registry=registry,
         store=store,
         settings=settings,
+        max_fills_per_day=MAX_FILLS_PER_DAY,
+        min_trust=MIN_TRUST,
         as_of=AS_OF,
         shortlist_path=shortlist,
     )
-    assert [r.address for r in pipeline.vetted] == [A, B]
+    assert [r.address for r in pipeline.vetted] == [B, A]  # least active first
     assert (summary.vetted, summary.accepted, summary.shortlisted) == (2, 1, 1)
     assert summary.rejected == {"maker_profile": 1}
     assert [w["address"] for w in tomllib.loads(shortlist.read_text())["wallets"]] == [A]
@@ -136,11 +167,13 @@ def test_discover_end_to_end(store: DiscoveryStore, tmp_path: Path) -> None:
         registry=registry,
         store=store,
         settings=settings,
+        max_fills_per_day=MAX_FILLS_PER_DAY,
+        min_trust=MIN_TRUST,
         as_of=AS_OF + timedelta(days=1),
         shortlist_path=shortlist,
     )
     assert [r.address for r in pipeline.vetted] == [A]  # B was rejected a day ago: skipped
-    assert again.skipped_recent == 1
+    assert (again.skipped_recent, again.prescreened, again.deferred) == (1, 0, 0)
 
 
 def test_store_reads_for_the_dashboard(store: DiscoveryStore) -> None:

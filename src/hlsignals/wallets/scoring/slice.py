@@ -25,6 +25,12 @@ def fills_per_active_day(fills: Sequence[Fill]) -> float:
     return len(fills) / len(days) if days else 0.0
 
 
+def observed_fills_per_day(n_fills: int, first_ms: int, last_ms: int) -> float:
+    """``fills_per_active_day`` when only a count and its time span are known (the
+    census): every UTC day the span touches counts as active, so this is a lower bound."""
+    return n_fills / (last_ms // MS_PER_DAY - first_ms // MS_PER_DAY + 1)
+
+
 def equity_fills(fills: Iterable[Fill], equities: frozenset[Symbol]) -> list[Fill]:
     """The fills on equity symbols, in their original order: the single place a wallet's
     history is restricted to the universe (IMPLEMENTATION_PLAN.md §5)."""

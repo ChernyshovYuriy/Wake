@@ -7,7 +7,7 @@ import pytest
 
 from hlsignals.core.clock import MS_PER_DAY
 from hlsignals.domain.models import Fill
-from hlsignals.wallets.scoring.slice import EquitySlice, equity_fills
+from hlsignals.wallets.scoring.slice import EquitySlice, equity_fills, observed_fills_per_day
 from tests.factories import AAPL, BTC, HOUR_MS, NVDA, T0_MS, WALLET, D, make_fills, make_position
 
 EQUITIES = frozenset({NVDA, AAPL})
@@ -118,3 +118,21 @@ def test_net_sizes_at_as_of() -> None:
     s = slice_of(sorted(fills, key=lambda f: f.time_ms))
     assert s.net_sizes == {NVDA: D(1), AAPL: D(-3)}
     assert slice_of(fills[:1], as_of_ms=T0_MS - 1).net_sizes == {}
+
+
+DAY0_MS = T0_MS // MS_PER_DAY * MS_PER_DAY  # 00:00 UTC of T0's day
+
+
+@pytest.mark.parametrize(
+    ("first_ms", "last_ms", "expected"),
+    [
+        (T0_MS, T0_MS, 40.0),  # one instant: one day
+        (DAY0_MS, DAY0_MS + MS_PER_DAY - 1, 40.0),  # a whole UTC day: still one day
+        (DAY0_MS - 1, DAY0_MS, 20.0),  # 1 ms across midnight: two days
+        (T0_MS, T0_MS + 3 * MS_PER_DAY, 10.0),
+    ],
+)
+def test_observed_fills_per_day_counts_every_day_the_span_touches(
+    first_ms: int, last_ms: int, expected: float
+) -> None:
+    assert observed_fills_per_day(40, first_ms, last_ms) == expected

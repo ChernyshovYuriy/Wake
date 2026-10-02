@@ -358,6 +358,8 @@ def _discover(args: argparse.Namespace, settings: Settings, rt: Runtime) -> int:
             registry=registry,
             store=store,
             settings=discovery,
+            max_fills_per_day=settings.wallet_filters.max_fills_per_day,
+            min_trust=settings.signals.min_trust,
             as_of=rt.clock.now(),
             shortlist_path=Path(discovery.shortlist_path),
         )
@@ -367,9 +369,12 @@ def _discover(args: argparse.Namespace, settings: Settings, rt: Runtime) -> int:
     rejected = ", ".join(f"{k} {v}" for k, v in sorted(summary.rejected.items())) or "none"
     print(
         f"discover: {summary.candidates} census wallets with >= {discovery.min_observations} "
-        f"trades; vetted {summary.vetted} (skipped {summary.skipped_recent} vetted recently); "
-        f"accepted {summary.accepted}; rejected: {rejected}; API errors {summary.errors}; "
-        f"shortlist now {summary.shortlisted} wallets in {discovery.shortlist_path}"
+        f"trades; vetted {summary.vetted} (skipped: {summary.skipped_recent} rejected recently, "
+        f"{summary.prescreened} over {settings.wallet_filters.max_fills_per_day:g} census "
+        f"fills/day, {summary.deferred} left for the next run); accepted {summary.accepted}; "
+        f"rejected: {rejected}; API errors {summary.errors}; shortlist now "
+        f"{summary.shortlisted} wallets with trust >= {settings.signals.min_trust:g} in "
+        f"{discovery.shortlist_path}"
     )
     return EXIT_OK
 

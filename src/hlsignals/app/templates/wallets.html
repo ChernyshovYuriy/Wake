@@ -8,7 +8,7 @@
   <p class="banner banner-info">Discovery has not run yet. It vets census wallets weekly (Saturday 02:00 New York);
     run it now with <code>sudo systemctl start hlsignals-discover.service</code>.</p>
 {% elif not discovery.shortlist %}
-  <p class="banner banner-info">No wallet has passed vetting yet. The census needs time to collect active wallets.</p>
+  <p class="banner banner-info">No wallet has passed vetting with trust &ge; {{ discovery.min_trust }} yet. The census needs time to collect active wallets.</p>
 {% else %}
 <div class="table-wrap"><table>
   <tr><th>Wallet</th><th class="num">Trust when vetted</th><th>Vetted</th></tr>

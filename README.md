@@ -105,7 +105,7 @@ loop on their own, starting with **no wallets at all**:
 |---|---|---|
 | `hlsignals-census.service` | always on | records every wallet trading US-stock perps into `data/census.sqlite` |
 | `hlsignals-dashboard.service` | always on | read-only web view at `http://<pi>:8081` |
-| `hlsignals-discover.timer` | Sat 02:00 | vets census wallets (new first, rejected ones again after 28 days, accepted ones every week) into `data/discovered_wallets.toml` |
+| `hlsignals-discover.timer` | Sat 02:00 | vets census wallets (accepted ones every week, then new ones least active first, rejected ones again after 28 days; wallets already over the maker fills/day limit in the census are skipped) into `data/discovered_wallets.toml`, keeping those with trust ≥ `min_trust` |
 | `hlsignals-run.timer` | Mon–Fri 08:45 | the report, on `config/wallets.toml` + the shortlist → `data/reports/signals-YYYY-MM-DD.{txt,md,json}` and `signals-latest.*` |
 | `hlsignals-backtest.timer` | Sun 02:00 | walk-forward backtest of the latest 80 sessions → `data/reports/backtest-*` |
 

@@ -89,7 +89,7 @@ def create_app(settings: Settings, *, base_dir: Path, clock: Clock, runner: Runn
         if report is not None:
             report_age_h = (now_ms() - to_ms(report.as_of)) / MS_PER_HOUR
         scored = [s for s in report.signals if s.status is SignalStatus.SCORED] if report else []
-        discovery = discovery_state(paths, limit=0)
+        discovery = discovery_state(paths, limit=0, min_trust=settings.signals.min_trust)
         return render_template(
             "overview.html",
             units=unit_statuses(UNITS, runner),
@@ -126,7 +126,9 @@ def create_app(settings: Settings, *, base_dir: Path, clock: Clock, runner: Runn
         curated, curated_error = curated_wallets(paths)
         return render_template(
             "wallets.html",
-            discovery=discovery_state(paths, limit=_RECENT_DECISIONS),
+            discovery=discovery_state(
+                paths, limit=_RECENT_DECISIONS, min_trust=settings.signals.min_trust
+            ),
             curated=curated,
             curated_error=curated_error,
             curated_path=paths.curated,

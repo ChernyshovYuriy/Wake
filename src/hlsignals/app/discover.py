@@ -1,10 +1,18 @@
 """Discovery: turn the census into a shortlist of wallets worth following.
 
 The census records thousands of wallets; vetting one can take many API calls, so the daily
-run cannot vet them all. Discovery (a weekly job) vets them incrementally: never-vetted
-wallets first (most active first), accepted wallets again every run (so a wallet that
-degrades drops out), rejected ones only after ``revet_days``. Accepted wallets are written
-to a curated-format wallets file that the daily run reads as a source.
+run cannot vet them all. Discovery (a weekly job) vets them incrementally: accepted
+wallets again every run (so a wallet that degrades drops out), then never-vetted wallets
+(least active first), then rejected ones after ``revet_days``.
+
+The census is mostly market makers, and they are also the most active wallets. Wallets
+whose census record alone already exceeds the maker filter's fills-per-day limit are
+skipped without an API call (not recorded: the next run judges them on newer census
+data). Least-active-first spends the per-run budget on the likely swing traders.
+
+Accepted wallets with trust of at least ``min_trust`` (the signals' threshold) are written
+to a curated-format wallets file that the daily run reads as a source; weaker ones stay
+in the store and are re-vetted every run, so they join the shortlist once they qualify.
 
 A wallet whose vetting hit an API error is not recorded, so it is simply retried next run.
 """
@@ -24,6 +32,7 @@ from hlsignals.app.vet import VetResult
 from hlsignals.core.clock import MS_PER_DAY, from_ms, to_ms
 from hlsignals.domain.models import WalletRecord
 from hlsignals.wallets.census.registry import WalletObservation, WalletRegistry
+from hlsignals.wallets.scoring.slice import observed_fills_per_day
 
 _SCHEMA = """
 CREATE TABLE IF NOT EXISTS vetted (
@@ -88,10 +97,11 @@ class DiscoveryStore:
         ).fetchone()
         return None if row is None else (row[0], bool(row[1]))
 
-    def shortlist(self) -> list[ShortlistEntry]:
+    def shortlist(self, min_trust: float) -> list[ShortlistEntry]:
         rows = self._db.execute(
-            "SELECT address, trust, vetted_ms FROM vetted WHERE accepted = 1 "
-            "ORDER BY trust DESC, address"
+            "SELECT address, trust, vetted_ms FROM vetted WHERE accepted = 1 AND trust >= ? "
+            "ORDER BY trust DESC, address",
+            (min_trust,),
         ).fetchall()
         return [ShortlistEntry(*row) for row in rows]
 
@@ -118,32 +128,58 @@ class DiscoveryStore:
         self._db.close()
 
 
+@dataclass(frozen=True, slots=True)
+class Candidates:
+    records: list[WalletRecord]
+    recent: int  # rejected less than revet_days ago
+    prescreened: int  # census fill rate above the maker limit: skipped without an API call
+    deferred: int  # over max_wallets_per_run: left for the next run
+
+
+def _census_rate(o: WalletObservation) -> float:
+    return observed_fills_per_day(o.n_fills, o.first_seen_ms, o.last_seen_ms)
+
+
 def select_candidates(
     observations: Sequence[WalletObservation],
     store: DiscoveryStore,
     now_ms: int,
     settings: DiscoverySettings,
-) -> list[WalletRecord]:
+    max_fills_per_day: float,
+) -> Candidates:
     revet_ms = settings.revet_days * MS_PER_DAY
     fresh: list[WalletObservation] = []
     recheck: list[WalletObservation] = []
     due: list[WalletObservation] = []
+    recent = prescreened = 0
     for o in observations:
         if o.n_fills < settings.min_observations:
             continue
         last = store.last(o.address)
-        if last is None:
+        if last is not None and last[1]:
+            recheck.append(o)  # accepted: always re-vetted in full, whatever the census says
+        elif last is not None and now_ms - last[0] < revet_ms:
+            recent += 1
+        elif _census_rate(o) > max_fills_per_day:
+            prescreened += 1
+        elif last is None:
             fresh.append(o)
-        elif last[1]:
-            recheck.append(o)
-        elif now_ms - last[0] >= revet_ms:
+        else:
             due.append(o)
-    fresh.sort(key=lambda o: (-o.n_fills, o.address))
-    ordered = [*fresh, *recheck, *due][: settings.max_wallets_per_run]
-    return [
-        WalletRecord(o.address, "census", None, f"census_fills={o.n_fills}", from_ms(now_ms))
+    fresh.sort(key=lambda o: (_census_rate(o), o.address))
+    queue = [*recheck, *fresh, *due]
+    ordered = queue[: settings.max_wallets_per_run]
+    records = [
+        WalletRecord(
+            o.address,
+            "census",
+            None,
+            f"census_fills={o.n_fills}, census_fills_per_day={_census_rate(o):.1f}",
+            from_ms(now_ms),
+        )
         for o in ordered
     ]
+    return Candidates(records, recent, prescreened, len(queue) - len(ordered))
 
 
 class Vetting(Protocol):
@@ -154,6 +190,8 @@ class Vetting(Protocol):
 class DiscoverySummary:
     candidates: int
     skipped_recent: int
+    prescreened: int
+    deferred: int
     vetted: int
     accepted: int
     rejected: dict[str, int]
@@ -167,21 +205,25 @@ def discover(
     registry: WalletRegistry,
     store: DiscoveryStore,
     settings: DiscoverySettings,
+    max_fills_per_day: float,
+    min_trust: float,
     as_of: datetime,
     shortlist_path: Path,
 ) -> DiscoverySummary:
     now_ms = to_ms(as_of)
     observations = registry.observations(min_fills=settings.min_observations)
-    candidates = select_candidates(observations, store, now_ms, settings)
-    results = pipeline.vet(candidates, as_of)
+    candidates = select_candidates(observations, store, now_ms, settings, max_fills_per_day)
+    results = pipeline.vet(candidates.records, as_of)
     for result in results:
         store.record(result, now_ms)
-    shortlist = store.shortlist()
+    shortlist = store.shortlist(min_trust)
     write_shortlist(shortlist_path, shortlist, as_of)
     rejected = Counter(r.rejection[0] for r in results if r.rejection is not None)
     return DiscoverySummary(
         candidates=len(observations),
-        skipped_recent=len(observations) - len(candidates),
+        skipped_recent=candidates.recent,
+        prescreened=candidates.prescreened,
+        deferred=candidates.deferred,
         vetted=len(results),
         accepted=sum(1 for r in results if r.accepted),
         rejected=dict(rejected),

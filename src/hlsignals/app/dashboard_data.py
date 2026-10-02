@@ -133,18 +133,22 @@ def census_stats(
 @dataclass(frozen=True, slots=True)
 class DiscoveryState:
     shortlist: list[ShortlistEntry]
+    min_trust: float  # the shortlist's entry bar
     rejected: dict[str, int]
     last_run_ms: int | None
     recent: list[VettedRow]
 
 
-def discovery_state(paths: DashboardPaths, *, limit: int) -> DiscoveryState | None:
+def discovery_state(
+    paths: DashboardPaths, *, limit: int, min_trust: float
+) -> DiscoveryState | None:
     if not paths.discovery_db.is_file():
         return None
     store = DiscoveryStore(paths.discovery_db)
     try:
         return DiscoveryState(
-            shortlist=store.shortlist(),
+            shortlist=store.shortlist(min_trust),
+            min_trust=min_trust,
             rejected=store.rejection_counts(),
             last_run_ms=store.last_vetted_ms(),
             recent=store.recent(limit),
