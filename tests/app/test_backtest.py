@@ -58,7 +58,7 @@ def test_single_pass_trades_the_reconstructed_signal() -> None:
     assert report.single.trades
     assert {t.symbol for t in report.single.trades} == {AAA}
     assert all(t.direction.value == "long" for t in report.single.trades)
-    assert report.parameters == "min_trust=0.4 epsilon=0.05"
+    assert report.parameters == "min_trust=0.4 epsilon=0.05 short_epsilon=0.3"
     assert report.caveats == (*STANDING_CAVEATS, "a load note")
     assert report.walk_forward is None
 
@@ -67,7 +67,11 @@ def test_walk_forward_runs_on_the_grid() -> None:
     start, end = scenario.DAY, SESSIONS[SESSIONS.index(scenario.DAY) + 14]
     report = run_backtest(
         settings=settings(
-            train_sessions=8, test_sessions=4, min_trust_grid=(0.3, 0.9), epsilon_grid=(0.05,)
+            train_sessions=8,
+            test_sessions=4,
+            min_trust_grid=(0.3, 0.9),
+            epsilon_grid=(0.05,),
+            short_epsilon_grid=(0.3, 1.0),
         ),
         loaded=loaded(),
         calendar=CALENDAR,
@@ -79,8 +83,9 @@ def test_walk_forward_runs_on_the_grid() -> None:
     assert report.walk_forward is not None
     assert report.walk_forward.folds
     assert {str(f.chosen) for f in report.walk_forward.folds} <= {
-        "min_trust=0.3 epsilon=0.05",
-        "min_trust=0.9 epsilon=0.05",
+        f"min_trust={t} epsilon=0.05 short_epsilon={s}"
+        for t in ("0.3", "0.9")
+        for s in ("0.3", "1")
     }
     assert "out-of-sample" in report.verdict() or report.verdict().startswith("INCONCLUSIVE")
 

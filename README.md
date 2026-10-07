@@ -262,7 +262,7 @@ starting points to be tuned with the backtest, not claims of optimality.
 | `[wallets.filters]` | filter order and thresholds (min round trips, maker profile, inactivity, bait) |
 | `[wallets.scoring]` | feature weights, shrinkage, half-life, swing horizon |
 | `[history]` | lookback of wallet history, candle interval, candle window for signals |
-| `[signals]` | component weights, flow/overnight floors and full scales, corroboration, epsilon, flag thresholds |
+| `[signals]` | component weights, flow/overnight floors and full scales, corroboration, epsilon / short_epsilon, flag thresholds |
 | `[calendar]`, `[census]`, `[report]`, `[backtest]` | market calendar file, census database, default report format, backtest settings |
 | `[discovery]` | census → shortlist: minimum census trades, wallets vetted per run, re-vet interval, output files |
 | `[dashboard]` | bind address and port (default 8081), reports directory, when the census counts as stale |
@@ -292,7 +292,9 @@ The same information appears in all three formats. JSON (`--format json`, schema
 - `symbol`: the perp (`xyz:NVDA`); the stock is its coin (`NVDA`), with exceptions mapped in
   `[backtest].ticker_overrides` (e.g. `PURRDAT` → Nasdaq `PURR`).
 - `status`: `scored`, or `insufficient` (not enough corroboration; no direction given).
-- `direction`: `long`, `short` or `flat` (|score| ≤ epsilon); null when insufficient.
+- `direction`: `long` (score > `epsilon`), `short` (score < −`short_epsilon`) or `flat`
+  (in between); null when insufficient. Shorts have their own, stricter threshold: in the
+  June–September 2026 backtest, weak short calls lost while longs held up.
 - `score`: weighted mean of the components, in [-1, +1]; null when insufficient.
 - `n_wallets`: distinct **trusted** wallets (trust ≥ `min_trust`) holding or trading it.
 - `reason`: how the direction was decided, or why it is insufficient, e.g.
@@ -392,7 +394,8 @@ Each trade has two benchmarks over the same window at the same cost:
   `total` in JSON is the sum of trade returns.
 - **regime**: the average buy-and-hold return of the traded names, and of the basket, over
   the period, so a strategy result can be read against the market it happened in.
-- **Walk-forward folds**: parameters (`min_trust`, `epsilon` from the grids) are chosen by
+- **Walk-forward folds**: parameters (`min_trust`, `epsilon`, `short_epsilon` from the
+  grids; `short_epsilon = 1` means never short) are chosen by
   mean net return on each train window only, then applied unchanged to the following test
   window. Test windows never overlap; train windows end `horizon_sessions − 1` sessions
   early (embargo) so no training outcome peeks into the test window.

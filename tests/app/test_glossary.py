@@ -43,7 +43,11 @@ def test_every_enum_value_is_explained() -> None:
 
 
 def test_tips_state_the_configured_thresholds() -> None:
-    custom = build_glossary(SignalSettings(epsilon=0.07, thin_volume_usd=1_234_567.0))
+    custom = build_glossary(
+        SignalSettings(epsilon=0.07, short_epsilon=0.35, thin_volume_usd=1_234_567.0)
+    )
     assert "+0.07" in custom.directions[SignalDirection.LONG]
+    assert "-0.35" in custom.directions[SignalDirection.SHORT]
+    assert "between -0.35 and +0.07" in custom.directions[SignalDirection.FLAT]
     assert "$1,234,567" in custom.flags[SignalFlag.THIN_VOLUME]
     assert "1 x tilt + 1 x flow + 0.5 x overnight) / 2.5" in GLOSSARY.columns["score"]

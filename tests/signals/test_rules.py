@@ -158,7 +158,9 @@ def test_corroboration_validation() -> None:
 
 # --- combiner -------------------------------------------------------------------------------
 
-COMBINER = WeightedCombiner({"tilt": 1.0, "flow": 1.0, "overnight": 0.5}, epsilon=0.05)
+COMBINER = WeightedCombiner(
+    {"tilt": 1.0, "flow": 1.0, "overnight": 0.5}, epsilon=0.05, short_epsilon=0.05
+)
 
 
 def parts(tilt: float, flow: float, overnight: float) -> dict[str, SignalComponent]:
@@ -180,10 +182,34 @@ def test_zero_score_is_flat() -> None:
 
 
 def test_score_exactly_epsilon_is_flat() -> None:
-    combiner = WeightedCombiner({"tilt": 1.0}, epsilon=0.25)
+    combiner = WeightedCombiner({"tilt": 1.0}, epsilon=0.25, short_epsilon=0.25)
     assert combiner.combine({"tilt": SignalComponent(0.25)})[1] is SignalDirection.FLAT
     assert combiner.combine({"tilt": SignalComponent(-0.25)})[1] is SignalDirection.FLAT
     assert combiner.combine({"tilt": SignalComponent(-0.2501)})[1] is SignalDirection.SHORT
+
+
+STRICT_SHORTS = WeightedCombiner({"tilt": 1.0}, epsilon=0.05, short_epsilon=0.3)
+
+
+@pytest.mark.parametrize(
+    ("score", "direction", "explained"),
+    [
+        (0.06, SignalDirection.LONG, "score +0.060 > epsilon 0.05"),
+        (-0.06, SignalDirection.FLAT, "score -0.060 within [-0.3, +0.05]"),
+        (-0.3, SignalDirection.FLAT, "score -0.300 within [-0.3, +0.05]"),
+        (-0.31, SignalDirection.SHORT, "score -0.310 < -short_epsilon 0.3"),
+    ],
+)
+def test_shorts_have_their_own_threshold(
+    score: float, direction: SignalDirection, explained: str
+) -> None:
+    assert STRICT_SHORTS.combine({"tilt": SignalComponent(score)}) == (score, direction)
+    assert STRICT_SHORTS.explain(score, direction) == explained
+
+
+def test_short_epsilon_one_never_shorts() -> None:
+    combiner = WeightedCombiner({"tilt": 1.0}, epsilon=0.05, short_epsilon=1.0)
+    assert combiner.combine({"tilt": SignalComponent(-1.0)})[1] is SignalDirection.FLAT
 
 
 def test_combiner_requires_every_weighted_component() -> None:
@@ -192,23 +218,28 @@ def test_combiner_requires_every_weighted_component() -> None:
 
 
 @pytest.mark.parametrize(
-    ("weights", "epsilon", "match"),
+    ("weights", "epsilon", "short_epsilon", "match"),
     [
-        ({"tilt": -1.0}, 0.05, r"^signal weights must not be negative$"),
-        ({"tilt": 0.0}, 0.05, r"^all signal weights are zero$"),
-        ({}, 0.05, r"^a combiner needs at least one weight$"),
-        ({"tilt": 1.0}, -0.1, "epsilon"),
-        ({"tilt": 1.0}, 1.0, "epsilon"),
+        ({"tilt": -1.0}, 0.05, 0.05, r"^signal weights must not be negative$"),
+        ({"tilt": 0.0}, 0.05, 0.05, r"^all signal weights are zero$"),
+        ({}, 0.05, 0.05, r"^a combiner needs at least one weight$"),
+        ({"tilt": 1.0}, -0.1, 0.05, r"^epsilon must be in \[0, 1\): -0.1$"),
+        ({"tilt": 1.0}, 1.0, 0.05, r"^epsilon must be in \[0, 1\): 1.0$"),
+        ({"tilt": 1.0}, 0.05, -0.1, r"^short_epsilon must be in \[0, 1\]: -0.1$"),
+        ({"tilt": 1.0}, 0.05, 1.01, r"^short_epsilon must be in \[0, 1\]: 1.01$"),
     ],
 )
-def test_combiner_validation(weights: dict[str, float], epsilon: float, match: str) -> None:
+def test_combiner_validation(
+    weights: dict[str, float], epsilon: float, short_epsilon: float, match: str
+) -> None:
     with pytest.raises(ValueError, match=match):
-        WeightedCombiner(weights, epsilon)
+        WeightedCombiner(weights, epsilon, short_epsilon)
 
 
-def test_combiner_accepts_zero_epsilon() -> None:
-    combiner = WeightedCombiner({"tilt": 1.0}, epsilon=0.0)
+def test_combiner_accepts_zero_thresholds() -> None:
+    combiner = WeightedCombiner({"tilt": 1.0}, epsilon=0.0, short_epsilon=0.0)
     assert combiner.combine({"tilt": SignalComponent(0.01)})[1] is SignalDirection.LONG
+    assert combiner.combine({"tilt": SignalComponent(-0.01)})[1] is SignalDirection.SHORT
 
 
 unit = st.floats(-1.0, 1.0, allow_nan=False)

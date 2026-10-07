@@ -187,7 +187,7 @@ def build_signal_engine(settings: SignalSettings) -> SignalEngine:
             Corroboration(
                 settings.min_wallets, settings.min_trust, settings.corroboration_window_hours
             ),
-            WeightedCombiner(settings.weights, settings.epsilon),
+            WeightedCombiner(settings.weights, settings.epsilon, settings.short_epsilon),
             FlagThresholds(settings.thin_volume_usd, settings.weak_confidence),
         )
     except ValueError as exc:

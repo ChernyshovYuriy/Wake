@@ -38,7 +38,8 @@ def build_glossary(s: SignalSettings) -> Glossary:
             "direction": "The call: long = trusted wallets lean bullish (expect the price to "
             "rise), short = they lean bearish (expect it to fall), flat = no clear lean.",
             "score": f"Combined signal in [-1, +1] = ({weights}) / {total:g}. "
-            f"Above +{s.epsilon:g} is long, below -{s.epsilon:g} short, otherwise flat.",
+            f"Above +{s.epsilon:g} is long, below -{s.short_epsilon:g} short, otherwise flat. "
+            "Shorts may need stronger evidence: in backtests they have been the weaker calls.",
             "tilt": "How trusted wallets are positioned right now: +1 = all their open "
             "positions are long, -1 = all short, 0 = balanced or none.",
             "flow": f"Trusted wallets' net buying over the last {window}, relative to open "
@@ -55,16 +56,18 @@ def build_glossary(s: SignalSettings) -> Glossary:
             "open_interest": "Open interest: the USD value of all positions currently open in "
             "this perp (contracts x mark). A gauge of how much money is committed.",
             "volume": "24h volume: USD value traded in this perp over the last 24 hours.",
-            "reason": f"Why: the |score| is compared with epsilon {s.epsilon:g} (the flat "
-            f"zone), then the count of trusted wallets with {s.min_wallets} required. "
+            "reason": f"Why: the score is compared with +{s.epsilon:g} (epsilon, for long) and "
+            f"-{s.short_epsilon:g} (short_epsilon, for short), then the count of trusted "
+            f"wallets with {s.min_wallets} required. "
             "'Involved' counts every wallet in this stock, trusted or not.",
         },
         directions={
             SignalDirection.LONG: f"Long: score above +{s.epsilon:g}. Trusted-wallet "
             "evidence is bullish: the price is expected to rise.",
-            SignalDirection.SHORT: f"Short: score below -{s.epsilon:g}. Trusted-wallet "
+            SignalDirection.SHORT: f"Short: score below -{s.short_epsilon:g}. Trusted-wallet "
             "evidence is bearish: the price is expected to fall.",
-            SignalDirection.FLAT: f"Flat: score within +/-{s.epsilon:g}. Evidence is too "
+            SignalDirection.FLAT: f"Flat: score between -{s.short_epsilon:g} and "
+            f"+{s.epsilon:g}. Evidence is too "
             "weak or mixed to call a direction.",
         },
         statuses={

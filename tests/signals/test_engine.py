@@ -42,7 +42,9 @@ ENGINE = SignalEngine(
         OvernightFeature(min_move=0.003, full_scale_move=0.03, max_staleness_hours=2.0),
     ],
     corroboration=Corroboration(min_wallets=3, min_trust=0.4, window_hours=24.0),
-    combiner=WeightedCombiner({"tilt": 1.0, "flow": 1.0, "overnight": 0.5}, epsilon=0.05),
+    combiner=WeightedCombiner(
+        {"tilt": 1.0, "flow": 1.0, "overnight": 0.5}, epsilon=0.05, short_epsilon=0.05
+    ),
     flags=FlagThresholds(thin_volume_usd=5_000_000.0, weak_confidence=0.5),
 )
 
@@ -117,8 +119,8 @@ def test_flags() -> None:
 
 def test_reason_states_the_epsilon_comparison_of_the_decision() -> None:
     long = ENGINE.evaluate(bullish_inputs())
-    assert long.reason.startswith(f"long: |score {long.score:+.3f}| > epsilon 0.05; 3 trusted")
-    # Balanced holders, no flow, a flat perp: score 0 -> flat, and the reason says "<=".
+    assert long.reason.startswith(f"long: score {long.score:+.3f} > epsilon 0.05; 3 trusted")
+    # Balanced holders, no flow, a flat perp: score 0 -> flat, inside the flat zone.
     flat = ENGINE.evaluate(
         bullish_inputs(
             positions=[
@@ -132,7 +134,7 @@ def test_reason_states_the_epsilon_comparison_of_the_decision() -> None:
         )
     )
     assert flat.direction is SignalDirection.FLAT
-    assert flat.reason.startswith("flat: |score +0.000| <= epsilon 0.05; 4 trusted")
+    assert flat.reason.startswith("flat: score +0.000 within [-0.05, +0.05]; 4 trusted")
 
 
 def test_weak_sample_flag_is_strictly_below_the_threshold() -> None:

@@ -61,9 +61,13 @@ class LoadedHistory:
 class SignalParams:
     min_trust: float
     epsilon: float
+    short_epsilon: float
 
     def __str__(self) -> str:
-        return f"min_trust={self.min_trust:g} epsilon={self.epsilon:g}"
+        return (
+            f"min_trust={self.min_trust:g} epsilon={self.epsilon:g} "
+            f"short_epsilon={self.short_epsilon:g}"
+        )
 
 
 def load_history(
@@ -205,7 +209,10 @@ def run_backtest(
 
     def replay(params: SignalParams, run_days: Sequence[date]) -> ReplayResult:
         signals = dataclasses.replace(
-            settings.signals, min_trust=params.min_trust, epsilon=params.epsilon
+            settings.signals,
+            min_trust=params.min_trust,
+            epsilon=params.epsilon,
+            short_epsilon=params.short_epsilon,
         )
         return Replay(
             data=loaded.data,
@@ -218,11 +225,18 @@ def run_backtest(
             ticker_overrides=bt.ticker_overrides,
         ).run(run_days)
 
-    configured = SignalParams(settings.signals.min_trust, settings.signals.epsilon)
+    configured = SignalParams(
+        settings.signals.min_trust, settings.signals.epsilon, settings.signals.short_epsilon
+    )
     wf = None
     skipped: list[str] = []
     if walk_forward:
-        grid = [SignalParams(t, e) for t in bt.min_trust_grid for e in bt.epsilon_grid]
+        grid = [
+            SignalParams(t, e, s)
+            for t in bt.min_trust_grid
+            for e in bt.epsilon_grid
+            for s in bt.short_epsilon_grid
+        ]
         folds = make_folds(
             days, train=bt.train_sessions, test=bt.test_sessions, embargo=bt.horizon_sessions - 1
         )

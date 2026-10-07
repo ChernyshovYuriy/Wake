@@ -12,7 +12,6 @@ from dataclasses import dataclass
 
 from hlsignals.domain.models import (
     SignalComponent,
-    SignalDirection,
     SignalFlag,
     SignalStatus,
     TickerSignal,
@@ -53,12 +52,10 @@ class SignalEngine:
         corroboration = self.corroboration.check(inputs)
         if corroboration.sufficient:
             score, direction = self.combiner.combine(components)
-            # Worded from the combiner's decision: the epsilon boundary lives only there.
-            comparison = "<=" if direction is SignalDirection.FLAT else ">"
             status = SignalStatus.SCORED
             reason = (
-                f"{direction.value}: |score {score:+.3f}| {comparison} epsilon "
-                f"{self.combiner.epsilon}; {corroboration.reason}"
+                f"{direction.value}: {self.combiner.explain(score, direction)}; "
+                f"{corroboration.reason}"
             )
         else:
             score, direction = None, None

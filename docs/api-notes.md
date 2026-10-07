@@ -433,3 +433,18 @@ later fill into earlier sessions; see AUDIT.md F3-1.)
 - DoD tests on a synthetic market with a planted 20-session trend: momentum source
   mean +0.90%/trade, t = +9.5 over 840 trades; the same signals with shuffled directions
   -0.02%/trade, t = -0.2. A source reading past t fails with LookAheadError.
+
+## 20. Signal direction: a separate short threshold (2026-10-06)
+
+- **PLAN CHANGE:** `WeightedCombiner(weights, epsilon, short_epsilon)`: long above
+  `+epsilon`, short below `-short_epsilon`, flat in between (the plan had one symmetric
+  epsilon). `short_epsilon = 1` never shorts. Default 0.3, `epsilon` stays 0.05.
+- Why: against buy-and-hold of the same stock, a long trade always ties, so short calls
+  decide that verdict. Replaying the Pi's 64-wallet shortlist over 2026-06-05..09-29
+  (in-sample, 5-session holds): shorts at 0.05 made +5.04% (22 trades) in Jun-Aug but
+  -0.41% (66) in September; at 0.3, +6.11% (9) and +0.37% (32). Small samples: the walk-
+  forward grid (`short_epsilon_grid = 0.05, 0.3, 1.0`) keeps re-checking it weekly. Its one
+  fold so far chose 0.05 on train (Jun-Aug shorts were profitable at any threshold).
+- The same replay rejected two other ideas: lowering the flow floor (`min_flow_oi_frac`)
+  changed a handful of trades, and a minimum trust-weighted position size for tilt made
+  results worse at every level tried.

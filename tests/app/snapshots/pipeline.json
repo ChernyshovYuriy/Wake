@@ -81,7 +81,7 @@
         "prev_day_px": 99.0
       },
       "n_wallets": 3,
-      "reason": "long: |score +0.605| > epsilon 0.05; 3 trusted wallets >= 3 (3 involved, trust >= 0.4)",
+      "reason": "long: score +0.605 > epsilon 0.05; 3 trusted wallets >= 3 (3 involved, trust >= 0.4)",
       "score": 0.6052269124473172,
       "status": "scored",
       "symbol": "xyz:NVDA"

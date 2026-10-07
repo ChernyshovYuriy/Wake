@@ -109,7 +109,9 @@ class SignalSettings:
     max_overnight_staleness_hours: float = 2.0
     min_wallets: int = 3
     min_trust: float = 0.4
-    epsilon: float = 0.05  # on the normalized [-1, 1] score
+    epsilon: float = 0.05  # on the normalized [-1, 1] score: long above +epsilon
+    short_epsilon: float = 0.3  # short below -short_epsilon (1 = never short); stricter:
+    # in the 2026-06..09 backtest, shorts near the flat zone lost while longs held up
     thin_volume_usd: float = 5_000_000.0
     weak_confidence: float = 0.5
 
@@ -156,6 +158,7 @@ class BacktestSettings:
     # Walk-forward grid: signal parameters tuned on each train window.
     min_trust_grid: tuple[float, ...] = (0.2, 0.3, 0.4)
     epsilon_grid: tuple[float, ...] = (0.05, 0.1)
+    short_epsilon_grid: tuple[float, ...] = (0.05, 0.3, 1.0)  # 1.0 = never short
     # HIP-3 coin -> cash ticker where they differ (trade.xyz spec: PURRDAT is Nasdaq PURR).
     ticker_overrides: MappingProxyType[str, str] = field(
         default_factory=lambda: MappingProxyType({"PURRDAT": "PURR"})
