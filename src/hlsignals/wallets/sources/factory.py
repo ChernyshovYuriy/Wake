@@ -50,9 +50,9 @@ def _required[T](spec: Mapping[str, Any], key: str, kind: type[T]) -> T:
     if key not in spec:
         raise ConfigError(f"wallet source spec is missing {key!r}: {dict(spec)}")
     value = spec[key]
-    if isinstance(value, bool) or not isinstance(value, kind):
-        raise ConfigError(f"wallet source {key!r} must be {kind.__name__}, got {value!r}")
-    return value
+    if isinstance(value, kind) and not isinstance(value, bool):
+        return value
+    raise ConfigError(f"wallet source {key!r} must be {kind.__name__}, got {value!r}")
 
 
 def _curated(spec: Mapping[str, Any], deps: SourceDeps) -> WalletSourcePort:

@@ -63,9 +63,9 @@ def _optional_float(raw: Any, key: str) -> float | None:
 
 def _int(raw: Any, key: str) -> int:
     value = _field(raw, key)
-    if isinstance(value, bool) or not isinstance(value, int):
-        return _bad(key, value)
-    return value
+    if isinstance(value, int) and not isinstance(value, bool):
+        return value
+    return _bad(key, value)
 
 
 def _bool(raw: Any, key: str) -> bool:
