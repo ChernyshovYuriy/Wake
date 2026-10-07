@@ -1,6 +1,7 @@
 {% extends "base.html" %}
 {% block title %}Signals · hl-whale-signals{% endblock %}
 {% block content %}
+{% from "_tip.html" import tip, flag_tips with context %}
 <div class="header-row">
   <h1>Signals{% if report %} <span class="muted">as of {{ report.as_of.strftime('%Y-%m-%d %H:%M UTC') }}</span>{% endif %}</h1>
   <button onclick="location.reload()" class="refresh-btn">↻ Refresh</button>
@@ -14,13 +15,17 @@
     (<code>hlsignals-run.timer</code>, Mon–Fri 08:45 New York) writes one.</p>
 {% else %}
   <h2>Ranked signals ({{ scored|length }})</h2>
+  <p class="muted">Hover or tap a <span class="tip">dotted term</span> for what it means.</p>
   {% if not scored %}
     <p class="banner banner-info">No stock has enough trusted wallets agreeing, so nothing is scored.
       This is expected until discovery has found trusted wallets.</p>
   {% else %}
   <div class="table-wrap"><table>
-    <tr><th>Stock</th><th>Direction</th><th class="num">Score</th><th class="num">Tilt</th><th class="num">Flow</th>
-        <th class="num">Overnight</th><th class="num">Wallets</th><th>Flags</th></tr>
+    {% set g = glossary.columns %}
+    <tr><th>{{ tip(g.stock, 'Stock') }}</th><th>{{ tip(g.direction, 'Direction') }}</th>
+        <th class="num">{{ tip(g.score, 'Score') }}</th><th class="num">{{ tip(g.tilt, 'Tilt') }}</th>
+        <th class="num">{{ tip(g.flow, 'Flow') }}</th><th class="num">{{ tip(g.overnight, 'Overnight') }}</th>
+        <th class="num">{{ tip(g.wallets, 'Wallets') }}</th><th>{{ tip(g.flags, 'Flags') }}</th></tr>
     {% for s in scored %}{% include "_signal_row.html" %}{% endfor %}
   </table></div>
   {% endif %}
@@ -28,12 +33,17 @@
   <h2>Evidence</h2>
   {% for s in report.signals %}
   <details {{ 'open' if loop.index <= 3 and s in scored }}>
-    <summary><b>{{ s.symbol.coin }}</b> · {{ s.status.value }} · {{ s.reason }}</summary>
+    <summary><b>{{ s.symbol.coin }}</b> · {{ tip(glossary.statuses[s.status], s.status.value) }} · {{ tip(glossary.columns.reason, s.reason) }}</summary>
     <div class="table-wrap" style="margin:6px 0 12px"><table>
-      <tr><td>market</td><td colspan="2">mark {{ s.market.mark_px|value }}, open interest ${{ '{:,.0f}'.format(s.market.oi_usd) }},
-        24h volume ${{ '{:,.0f}'.format(s.market.day_ntl_vlm) }}; flags: {{ s|flags }}</td></tr>
+      {% set g = glossary.columns %}
+      <tr><td>market</td><td colspan="2">{{ tip(g.mark, 'mark') }} {{ s.market.mark_px|value }},
+        {{ tip(g.open_interest, 'open interest') }} ${{ '{:,.0f}'.format(s.market.oi_usd) }},
+        {{ tip(g.volume, '24h volume') }} ${{ '{:,.0f}'.format(s.market.day_ntl_vlm) }};
+        {{ tip(g.flags, 'flags') }}: {{ flag_tips(s) }}</td></tr>
       {% for name, c in s.components.items() %}
-      <tr><td>{{ name }}</td><td class="num">{{ c.value|score }}</td><td class="mono">{{ c.evidence|evidence }}</td></tr>
+      {% set keys = glossary.evidence.get(name, {}) %}
+      <tr><td>{{ tip(g.get(name), name) }}</td><td class="num">{{ c.value|score }}</td>
+        <td class="mono">{% for key, v in c.evidence.items() %}{{ tip(keys.get(key), key) }}={{ v|value }}{{ ', ' if not loop.last }}{% endfor %}</td></tr>
       {% endfor %}
     </table></div>
   </details>
@@ -42,7 +52,10 @@
   <h2>Accepted wallets ({{ report.wallets|length }})</h2>
   {% if report.wallets %}
   <div class="table-wrap"><table>
-    <tr><th>Wallet</th><th class="num">Trust</th><th class="num">Confidence</th><th class="num">Decay</th><th class="num">Round trips</th></tr>
+    {% set g = glossary.wallet %}
+    <tr><th>{{ tip(g.wallet, 'Wallet') }}</th><th class="num">{{ tip(g.trust, 'Trust') }}</th>
+      <th class="num">{{ tip(g.confidence, 'Confidence') }}</th><th class="num">{{ tip(g.decay, 'Decay') }}</th>
+      <th class="num">{{ tip(g.round_trips, 'Round trips') }}</th></tr>
     {% for w in report.wallets %}
     <tr><td class="mono"><a href="{{ explorer }}{{ w.address }}" target="_blank" rel="noopener">{{ w.address }}</a></td>
       <td class="num">{{ '%.3f'|format(w.trust) }}</td><td class="num">{{ '%.3f'|format(w.confidence) }}</td>

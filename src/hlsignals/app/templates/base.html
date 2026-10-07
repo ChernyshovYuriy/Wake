@@ -20,5 +20,27 @@
     {% block content %}{% endblock %}
   </main>
   <footer>{{ disclaimer }} Read-only view: nothing here places orders or changes files.</footer>
+  <div id="tip-bubble" role="tooltip"></div>
+  <script>
+    (() => {
+      const bubble = document.getElementById("tip-bubble");
+      const GAP = 8;
+      const show = (el) => {
+        bubble.textContent = el.dataset.tip;
+        bubble.style.display = "block";
+        const r = el.getBoundingClientRect(), b = bubble.getBoundingClientRect();
+        const left = Math.min(Math.max(GAP, r.left), window.innerWidth - b.width - GAP);
+        const below = r.bottom + GAP + b.height <= window.innerHeight;
+        bubble.style.left = left + "px";
+        bubble.style.top = (below ? r.bottom + GAP : r.top - b.height - GAP) + "px";
+      };
+      const hide = () => { bubble.style.display = "none"; };
+      const target = (e) => e.target.closest && e.target.closest("[data-tip]");
+      document.addEventListener("mouseover", (e) => { const el = target(e); el ? show(el) : hide(); });
+      document.addEventListener("focusin", (e) => { const el = target(e); if (el) show(el); });
+      document.addEventListener("focusout", hide);
+      document.addEventListener("scroll", hide, true);
+    })();
+  </script>
 </body>
 </html>

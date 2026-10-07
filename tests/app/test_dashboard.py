@@ -118,6 +118,8 @@ def test_signals_page_latest_and_by_day(populated: Path) -> None:
         "Accepted wallets",
         "maker_profile",
         "2026-09-24",
+        'class="tip"',  # hover explanations
+        "Mark price: the perp",
     ):
         assert needle in page
     assert "NVDA" in text(c, "/signals?day=2026-09-24")

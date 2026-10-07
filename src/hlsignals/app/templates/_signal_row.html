@@ -1,10 +1,11 @@
+{% from "_tip.html" import tip, flag_tips with context %}
 <tr>
   <td><b>{{ s.symbol.coin }}</b> <span class="muted mono">{{ s.symbol }}</span></td>
-  <td class="{{ s.direction.value if s.direction else '' }}">{{ s.direction.value if s.direction else '-' }}</td>
+  <td class="{{ s.direction.value if s.direction else '' }}">{{ tip(glossary.directions[s.direction], s.direction.value) if s.direction else '-' }}</td>
   <td class="num">{{ s.score|score }}</td>
   {% for name in ('tilt', 'flow', 'overnight') %}
   <td class="num">{{ s.components[name].value|score if name in s.components else '-' }}</td>
   {% endfor %}
   <td class="num">{{ s.n_wallets }}</td>
-  <td>{{ s|flags }}</td>
+  <td>{{ flag_tips(s) }}</td>
 </tr>

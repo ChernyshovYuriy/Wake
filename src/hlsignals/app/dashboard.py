@@ -27,11 +27,12 @@ from hlsignals.app.dashboard_data import (
     load_signal_report,
     signal_report_days,
 )
+from hlsignals.app.glossary import build_glossary
 from hlsignals.app.system_status import UNITS, Runner, unit_statuses
 from hlsignals.core.clock import MS_PER_HOUR, Clock, from_ms, to_ms
 from hlsignals.core.errors import AdapterError
 from hlsignals.domain.models import SignalReport, SignalStatus
-from hlsignals.reporting.evidence import DISCLAIMER, fmt_evidence, fmt_flags, fmt_score, fmt_value
+from hlsignals.reporting.evidence import DISCLAIMER, fmt_score, fmt_value
 
 _RECENT_DECISIONS = 50
 EXPLORER = "https://app.hyperliquid.xyz/explorer/address/"
@@ -53,13 +54,13 @@ def create_app(settings: Settings, *, base_dir: Path, clock: Clock, runner: Runn
     app.jinja_env.filters.update(
         score=fmt_score,
         value=fmt_value,
-        evidence=fmt_evidence,
-        flags=fmt_flags,
         when=lambda ms: "-" if ms is None else from_ms(ms).strftime("%Y-%m-%d %H:%M UTC"),
         pct=lambda v: "-" if v is None else f"{v:+.2%}",
         num=lambda v: "-" if v is None else f"{v:.2f}",
     )
-    app.jinja_env.globals.update(disclaimer=DISCLAIMER, explorer=EXPLORER)
+    app.jinja_env.globals.update(
+        disclaimer=DISCLAIMER, explorer=EXPLORER, glossary=build_glossary(settings.signals)
+    )
 
     def now_ms() -> int:
         return to_ms(clock.now())

@@ -1,0 +1,8 @@
+{# A term with a hover/focus explanation; plain text when there is none. #}
+{% macro tip(text, label) -%}
+{% if text %}<span class="tip" tabindex="0" data-tip="{{ text }}">{{ label }}</span>{% else %}{{ label }}{% endif %}
+{%- endmacro %}
+
+{% macro flag_tips(s) -%}
+{% for f in s.flags|sort %}{{ tip(glossary.flags[f], f.value) }}{{ ', ' if not loop.last }}{% else %}-{% endfor %}
+{%- endmacro %}

@@ -62,3 +62,11 @@ code, .mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-
 details summary { cursor: pointer; }
 .days a { margin-right: 10px; }
 footer { color: var(--text-muted); font-size: 12px; padding: 20px; text-align: center; }
+/* Hover/focus explanations (templates/_tip.html); the bubble is placed by base.html's script
+   because .table-wrap's overflow would clip a CSS-only tooltip. */
+.tip { border-bottom: 1px dotted currentColor; cursor: help; }
+.tip:focus { outline: 1px solid var(--accent); outline-offset: 1px; }
+#tip-bubble { position: fixed; z-index: 10; max-width: 340px; padding: 8px 10px; border-radius: 6px;
+  background: var(--header-bg); color: var(--header-text); font: 13px/1.4 -apple-system, BlinkMacSystemFont,
+  "Segoe UI", Roboto, sans-serif; font-weight: 400; white-space: normal; text-align: left;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.2); pointer-events: none; display: none; }
