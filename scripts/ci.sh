@@ -2,14 +2,22 @@
 # Runs every quality gate from IMPLEMENTATION_PLAN.md §0.3. Fails on the first red gate.
 set -euo pipefail
 cd "$(dirname "$0")/.."
-# Runs in the real environment (no venv): each tool as a module of python3.
-PY=python3
+# Each tool runs as a module of one interpreter: .venv's when it has the dev tools (the
+# Pi's .venv holds runtime deps only), else the system python3.
+if [ -x .venv/bin/ruff ]; then
+  PY=.venv/bin/python
+  LINT_IMPORTS=.venv/bin/lint-imports
+else
+  PY=python3
+  LINT_IMPORTS=lint-imports
+fi
+echo "== using $PY"
 
 echo "== ruff";        "$PY" -m ruff check src tests scripts
 echo "== ruff format"; "$PY" -m ruff format --check src tests scripts
 echo "== mypy";        "$PY" -m mypy
 if [ -f .importlinter ]; then
-  echo "== import-linter"; lint-imports
+  echo "== import-linter"; "$LINT_IMPORTS"
 fi
 echo "== duplication"
 "$PY" -m pylint --disable=all --enable=duplicate-code --min-similarity-lines=6 \
