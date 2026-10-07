@@ -104,6 +104,7 @@ def test_overview_shows_services_funnel_signals_and_verdict(populated: Path) -> 
     assert "NVDA" in page  # top signal
     assert "recording" in page  # census wrote 1 minute ago
     assert "BEAT buy-and-hold" in page
+    assert "Vs the equal-weight basket: <b>DID NOT BEAT the basket" in page
     assert 'http-equiv="refresh"' in page
 
 
@@ -149,11 +150,27 @@ def test_backtest_page(populated: Path) -> None:
     for needle in (
         "BEAT buy-and-hold",
         "buy-and-hold",
+        "<b>basket</b>",
+        "Vs the equal-weight basket: <b>DID NOT BEAT the basket",
         "Walk-forward folds",
         "open interest is approximated",
     ):
         assert needle in page
     assert "BEAT" in text(c, "/backtest?day=2026-09-20")
+
+
+def test_backtest_saved_before_the_basket_still_renders(populated: Path) -> None:
+    reports = populated / "data" / "reports"
+    doc = json.loads((reports / "backtest-2026-09-20.json").read_text())
+    for key in ("basket", "basket_verdict"):
+        del doc[key]
+    for fold in doc["walk_forward"]["folds"]:
+        del fold["test_basket"]
+    (reports / "backtest-2026-09-13.json").write_text(json.dumps(doc))
+    page = text(client(populated), "/backtest?day=2026-09-13")
+    assert "BEAT buy-and-hold" in page
+    assert "<b>basket</b>" not in page
+    assert "Vs the equal-weight basket:" not in page
 
 
 @pytest.mark.parametrize("url", ["/", "/signals", "/wallets", "/census", "/backtest"])

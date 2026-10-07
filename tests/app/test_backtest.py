@@ -99,7 +99,7 @@ def test_walk_forward_without_a_fold_falls_back_to_the_single_pass_and_says_so()
         walk_forward=True,
     )
     assert report.walk_forward is None
-    assert report.basis()[2] == "in-sample, configured parameters"
+    assert report.basis().label == "in-sample, configured parameters"
     assert any("walk-forward skipped: 10 sessions, at least 11 needed" in c for c in report.caveats)
 
 

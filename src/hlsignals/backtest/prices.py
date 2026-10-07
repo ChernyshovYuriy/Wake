@@ -31,6 +31,15 @@ class PriceBook:
         bar = self._bars.get(ticker, {}).get(day)
         return None if bar is None else bar.close
 
+    def window_moves(self, entry_day: date, exit_day: date) -> dict[str, float]:
+        """exit close / entry open - 1 of every ticker with both bars (the basket's legs)."""
+        moves = {}
+        for ticker, days in self._bars.items():
+            entry, exit_bar = days.get(entry_day), days.get(exit_day)
+            if entry is not None and exit_bar is not None:
+                moves[ticker] = exit_bar.close / entry.open - 1
+        return moves
+
     def last_day(self, ticker: str) -> date | None:
         days = self._bars.get(ticker)
         return max(days) if days else None

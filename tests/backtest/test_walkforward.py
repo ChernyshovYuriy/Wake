@@ -43,9 +43,12 @@ def test_too_little_data_gives_no_folds() -> None:
     assert make_folds(DAYS[:20], train=20, test=10, embargo=0) == []
 
 
+BASKET = 0.003
+
+
 def trade(day: date, net: float) -> Trade:
     return Trade(
-        day, day, SYMBOLS[0], "AAA", SignalDirection.LONG, 0.5, 100.0, 100.0, net, net, 0.0
+        day, day, SYMBOLS[0], "AAA", SignalDirection.LONG, 0.5, 100.0, 100.0, net, net, 0.0, BASKET
     )
 
 
@@ -70,6 +73,8 @@ def test_parameters_chosen_on_train_only_and_evaluated_out_of_sample() -> None:
     for fold in result.folds:  # every test window was evaluated only with the chosen param
         assert (fold.chosen, fold.test.sessions[0], fold.test.sessions[-1]) in calls
     assert result.out_of_sample.n_trades == 30
+    assert result.basket.n_trades == 30
+    assert result.basket.mean == pytest.approx(BASKET)
     assert second.chosen in {"bad", "good"}
 
 

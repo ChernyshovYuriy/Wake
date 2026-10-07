@@ -53,6 +53,7 @@ class WalkForwardResult[P]:
     folds: tuple[FoldResult[P], ...]
     out_of_sample: Metrics
     benchmark: Metrics
+    basket: Metrics
 
 
 def _objective(metrics: Metrics) -> float:
@@ -95,4 +96,5 @@ class WalkForward[P]:
             folds=tuple(results),
             out_of_sample=metrics([t.net for t in trades]),
             benchmark=metrics([t.benchmark_net for t in trades]),
+            basket=metrics([t.basket_net for t in trades]),
         )

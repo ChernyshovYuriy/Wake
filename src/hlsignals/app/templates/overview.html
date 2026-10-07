@@ -86,6 +86,7 @@
     {% else %}
       <p>{{ backtest.period.start }} … {{ backtest.period.end }}, {{ backtest.sample.trades }} trades</p>
       <p><b>{{ backtest.verdict }}</b></p>
+      {% if backtest.basket_verdict %}<p>Vs the equal-weight basket: <b>{{ backtest.basket_verdict }}</b></p>{% endif %}
       <p><a href="{{ url_for('backtest') }}">Backtest →</a></p>
     {% endif %}
   </div>

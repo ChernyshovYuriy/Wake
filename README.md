@@ -185,8 +185,8 @@ LAN-only, no password, **read-only**: it only shows what the jobs produced.
   Hyperliquid explorer).
 - **Census**: recording or stale, wallets and trades seen, new wallets per day, the most
   active wallets.
-- **Backtest**: the verdict (BEAT / DID NOT BEAT buy-and-hold / INCONCLUSIVE),
-  strategy vs buy-and-hold, walk-forward folds, caveats; past runs.
+- **Backtest**: the verdicts (BEAT / DID NOT BEAT buy-and-hold and the equal-weight basket
+  / INCONCLUSIVE), strategy vs buy-and-hold and the basket, walk-forward folds, caveats; past runs.
 
 ### 5. The first weeks (starting with no wallets)
 
@@ -371,21 +371,27 @@ For each session between `--start` and `--end`, signals are rebuilt as of
 `preopen_minutes` before the open **using only data available then**. Every long/short
 signal becomes a trade in the real stock: enter at that day's open, exit at the close of
 the `horizon_sessions`-th session. Returns are net of `cost_bps_per_side` on both sides.
-Each trade has a **buy-and-hold benchmark**: long the same stock over the same window at
-the same cost.
+Each trade has two benchmarks over the same window at the same cost:
 
-- **Verdict**: `BEAT` / `DID NOT BEAT` buy-and-hold by the difference in mean return per
-  trade, or `INCONCLUSIVE` when there are fewer than `min_trades_for_verdict` trades,
+- **buy-and-hold**: long the same stock. A long trade is identical to it, so only correct
+  shorts can beat it: this verdict asks "are the short calls right?".
+- **basket**: long an equal-weight basket of every stock with prices on both days (the
+  universe, not just the signalled names). A long that picks stocks which outrun the
+  basket beats it too: this verdict asks "does following the wallets pick better stocks
+  than holding them all?".
+
+- **Verdict** / **Vs basket**: `BEAT` / `DID NOT BEAT` buy-and-hold (or the basket) by
+  the difference in mean return per trade, or `INCONCLUSIVE` when there are fewer than `min_trades_for_verdict` trades,
   whatever the numbers say. It is based on the out-of-sample walk-forward results when
   `--walk-forward` is used, otherwise on a single in-sample pass with the configured
   parameters (`basis`).
-- **Results table** (strategy vs buy-and-hold): `trades` (`n_trades`), `hit` (`hit_rate`:
+- **Results table** (strategy vs buy-and-hold and the basket): `trades` (`n_trades`), `hit` (`hit_rate`:
   share of trades with positive net return), `mean`, `median`, `sharpe` (per-trade mean /
   stdev × √(252 / horizon); needs ≥ 2 trades with dispersion), `max DD` (max_drawdown of
   the cumulative sum of trade returns), `exposure` (share of sessions with an open trade).
   `total` in JSON is the sum of trade returns.
-- **regime**: the average buy-and-hold return of the traded names over the period, so a
-  strategy result can be read against the market it happened in.
+- **regime**: the average buy-and-hold return of the traded names, and of the basket, over
+  the period, so a strategy result can be read against the market it happened in.
 - **Walk-forward folds**: parameters (`min_trust`, `epsilon` from the grids) are chosen by
   mean net return on each train window only, then applied unchanged to the following test
   window. Test windows never overlap; train windows end `horizon_sessions − 1` sessions
@@ -396,9 +402,10 @@ the same cost.
   (wallets pre-screened, candles starting late, tickers without bars).
 
 JSON fields: `period` (`start`, `end`), `sample` (`sessions`, `trades`),
-`horizon_sessions`, `cost_bps_per_side`, `parameters`, `basis`, `verdict`, `strategy` /
-`benchmark` (the metrics above), `skipped`, `caveats`, `walk_forward` → `folds` (`train`,
-`test`, `chosen`, `train_metrics`, `test_metrics`, `test_benchmark`).
+`horizon_sessions`, `cost_bps_per_side`, `parameters`, `basis`, `verdict`,
+`basket_verdict`, `strategy` / `benchmark` / `basket` (the metrics above), `skipped`,
+`caveats`, `walk_forward` → `folds` (`train`, `test`, `chosen`, `train_metrics`,
+`test_metrics`, `test_benchmark`, `test_basket`).
 
 ---
 

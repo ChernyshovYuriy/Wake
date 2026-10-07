@@ -1,7 +1,9 @@
 """Replay: for each session day, build signals as of just before the open (through an
 AsOfView only), turn every long/short signal into a trade in the real stock, and measure
 it forward: enter at that day's open, exit at the close of the ``horizon_sessions``-th
-session. Each trade has a buy-and-hold benchmark over the same window at the same cost.
+session. Each trade has two benchmarks over the same window at the same cost: buy-and-hold
+of the same stock (only a correct short can beat it) and an equal-weight basket of every
+stock with prices (which a well-picked long can beat too).
 
 Trades whose bars are missing or whose exit has not happened yet are skipped and counted.
 """
@@ -9,6 +11,7 @@ Trades whose bars are missing or whose exit has not happened yet are skipped and
 from __future__ import annotations
 
 import logging
+import statistics
 from collections import Counter
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
@@ -51,6 +54,7 @@ class Trade:
     gross: float  # direction x (exit / entry - 1)
     net: float  # gross - round-trip cost
     benchmark_net: float  # long the same stock, same window, same cost
+    basket_net: float  # long an equal-weight basket of every priced stock, same window and cost
 
 
 @dataclass(frozen=True, slots=True)
@@ -69,6 +73,9 @@ class ReplayResult:
 
     def benchmark_metrics(self) -> Metrics:
         return self._metrics([t.benchmark_net for t in self.trades])
+
+    def basket_metrics(self) -> Metrics:
+        return self._metrics([t.basket_net for t in self.trades])
 
     def _metrics(self, returns: list[float]) -> Metrics:
         return compute_metrics(
@@ -152,6 +159,9 @@ class Replay:
         sign = 1.0 if direction is SignalDirection.LONG else -1.0
         move = exit_px / entry - 1
         cost = self._costs.round_trip(ticker)
+        # Never empty: the traded ticker itself has both bars.
+        basket = self._prices.window_moves(day, exit_day)
+        basket_net = statistics.fmean(m - self._costs.round_trip(t) for t, m in basket.items())
         return Trade(
             day=day,
             exit_day=exit_day,
@@ -164,4 +174,5 @@ class Replay:
             gross=sign * move,
             net=sign * move - cost,
             benchmark_net=move - cost,
+            basket_net=basket_net,
         )

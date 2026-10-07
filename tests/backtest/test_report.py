@@ -4,7 +4,7 @@ import json
 
 import pytest
 
-from hlsignals.backtest.metrics import compute_metrics
+from hlsignals.backtest.metrics import Metrics, compute_metrics
 from hlsignals.backtest.replay import ReplayResult, Trade
 from hlsignals.backtest.report import BacktestReport, backtest_to_json, render_backtest
 from hlsignals.backtest.walkforward import Fold, FoldResult, WalkForwardResult
@@ -14,7 +14,7 @@ from tests.backtest.synthetic import SESSIONS, SYMBOLS
 DAYS = tuple(SESSIONS[:40])
 
 
-def trades(n: int, net: float, bench: float) -> tuple[Trade, ...]:
+def trades(n: int, net: float, bench: float, basket: float) -> tuple[Trade, ...]:
     return tuple(
         Trade(
             DAYS[i % 40],
@@ -28,23 +28,33 @@ def trades(n: int, net: float, bench: float) -> tuple[Trade, ...]:
             net,
             net,
             bench,
+            basket,
         )
         for i in range(n)
     )
 
 
 def report(
-    n: int, net: float = 0.01, bench: float = 0.002, walk_forward: bool = False
+    n: int,
+    net: float = 0.01,
+    bench: float = 0.002,
+    walk_forward: bool = False,
+    basket: float = 0.015,
 ) -> BacktestReport:
-    single = ReplayResult(DAYS, trades(n, net, bench), {"missing stock bars": 2}, 5)
+    single = ReplayResult(DAYS, trades(n, net, bench, basket), {"missing stock bars": 2}, 5)
     wf = None
     if walk_forward:
         fold = Fold(DAYS[:20], DAYS[20:])
-        test = ReplayResult(DAYS[20:], trades(n, net, bench), {}, 5)
-        metrics = compute_metrics([net] * n, horizon_days=5, sessions=20, exposed_sessions=20)
-        bench_m = compute_metrics([bench] * n, horizon_days=5, sessions=20, exposed_sessions=20)
+        test = ReplayResult(DAYS[20:], trades(n, net, bench, basket), {}, 5)
+
+        def metrics(r: float) -> Metrics:
+            return compute_metrics([r] * n, horizon_days=5, sessions=20, exposed_sessions=20)
+
         wf = WalkForwardResult(
-            (FoldResult(fold, "min_trust=0.3 epsilon=0.05", metrics, test),), metrics, bench_m
+            (FoldResult(fold, "min_trust=0.3 epsilon=0.05", metrics(net), test),),
+            metrics(net),
+            metrics(bench),
+            metrics(basket),
         )
     return BacktestReport(
         start=DAYS[0],
@@ -74,6 +84,22 @@ def test_beat_and_did_not_beat() -> None:
 
 def test_walk_forward_is_the_basis_when_present() -> None:
     assert "out-of-sample" in report(40, walk_forward=True).verdict()
+    assert "out-of-sample" in report(40, walk_forward=True).basket_verdict()
+
+
+def test_basket_verdict_is_judged_against_the_basket() -> None:
+    # +1.00% per trade beats same-stock buy-and-hold (+0.20%) but not the basket (+1.50%).
+    assert (
+        report(40)
+        .basket_verdict()
+        .startswith("DID NOT BEAT the basket (-0.50% per trade, in-sample")
+    )
+    assert (
+        report(40, basket=0.004)
+        .basket_verdict()
+        .startswith("BEAT the basket by +0.60% per trade (in-sample")
+    )
+    assert report(12).basket_verdict().startswith("INCONCLUSIVE: 12 trades < 30")
 
 
 def test_text_shows_sample_size_benchmark_regime_and_caveats() -> None:
@@ -85,6 +111,9 @@ def test_text_shows_sample_size_benchmark_regime_and_caveats() -> None:
         "5 bps/side",
         "strategy",
         "buy-and-hold",
+        "basket",
+        "Vs basket: DID NOT BEAT the basket",
+        "the equal-weight basket +1.50%",
         "trades",
         "Walk-forward",
         "chosen min_trust=0.3",
@@ -101,10 +130,13 @@ def test_json_is_complete() -> None:
     assert doc["sample"]["trades"] == 40
     assert doc["strategy"]["mean"] == pytest.approx(0.01)
     assert doc["benchmark"]["mean"] == pytest.approx(0.002)
+    assert doc["basket"]["mean"] == pytest.approx(0.015)
+    assert doc["basket_verdict"].startswith("DID NOT BEAT the basket")
     fold = doc["walk_forward"]["folds"][0]
     assert fold["chosen"] == "min_trust=0.3 epsilon=0.05"
     assert fold["train"] == [str(DAYS[0]), str(DAYS[19])]
     assert fold["train_metrics"]["n_trades"] == 40
+    assert fold["test_basket"]["mean"] == pytest.approx(0.015)
     assert doc["caveats"] == ["open interest is approximated"]
 
 

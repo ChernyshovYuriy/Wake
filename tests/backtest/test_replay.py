@@ -124,6 +124,33 @@ def test_costs_reduce_returns_exactly_by_modelled_bps() -> None:
     assert trade.benchmark_net == pytest.approx(0.10 - 0.0010)
 
 
+def basket_book() -> PriceBook:
+    """AAA +10%, BBB -20%, CCC has no exit bar so it is left out of the basket."""
+    bars = {
+        "AAA": {DAY: (100.0, 101.0), EXIT: (108.0, 110.0)},
+        "BBB": {DAY: (50.0, 50.0), EXIT: (41.0, 40.0)},
+        "CCC": {DAY: (10.0, 10.0)},
+    }
+    return PriceBook(
+        {t: [DailyBar(t, d, o, c) for d, (o, c) in rows.items()] for t, rows in bars.items()}
+    )
+
+
+def test_window_moves_cover_tickers_with_both_bars() -> None:
+    moves = basket_book().window_moves(DAY, EXIT)
+    assert moves == {"AAA": pytest.approx(0.10), "BBB": pytest.approx(-0.20)}
+
+
+@pytest.mark.parametrize("direction", [SignalDirection.LONG, SignalDirection.SHORT])
+def test_basket_is_equal_weight_over_priced_stocks_at_the_same_cost(
+    direction: SignalDirection,
+) -> None:
+    result = one_trade(direction, cost_bps=5.0, prices=basket_book())
+    (trade,) = result.trades
+    assert trade.basket_net == pytest.approx((0.10 - 0.20) / 2 - 0.0010)
+    assert result.basket_metrics().mean == pytest.approx(trade.basket_net)
+
+
 @pytest.mark.parametrize("missing", ["entry", "exit"])
 def test_missing_stock_bars_are_skipped_and_counted(missing: str) -> None:
     result = one_trade(SignalDirection.LONG, prices=book(missing))
